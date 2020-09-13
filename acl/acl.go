@@ -4,7 +4,6 @@ package acl
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 )
 
@@ -157,14 +156,12 @@ func (c *collection) hasFlag(f string) bool {
 func (a *ACL) Allowed(u User) bool {
 	// check blocked lists
 	if a.blocked.hasUser(u.Name()) {
-		fmt.Println("user blocked")
 		return false
 	}
 
 	groups := u.Groups()
 	for idx := range groups {
 		if a.blocked.hasGroup(groups[idx]) {
-			fmt.Println("group blocked")
 			return false
 		}
 	}
@@ -172,43 +169,36 @@ func (a *ACL) Allowed(u User) bool {
 	flags := u.Flags()
 	for idx := range flags {
 		if a.blocked.hasFlag(flags[idx]) {
-			fmt.Println("flag blocked")
 			return false
 		}
 	}
 
 	// check allowed lists
 	if a.allowed.hasUser(u.Name()) {
-		fmt.Println("user allowed")
 		return true
 	}
 
 	for idx := range groups {
 		if a.allowed.hasGroup(groups[idx]) {
-			fmt.Println("group allowed")
 			return true
 		}
 	}
 
 	for idx := range flags {
 		if a.allowed.hasFlag(flags[idx]) {
-			fmt.Println("flag allowed")
 			return true
 		}
 	}
 
 	// fall back to all flags
 	if a.blocked.all {
-		fmt.Println("all blocked")
 		return false
 	}
 
 	if a.allowed.all {
-		fmt.Println("all allowed")
 		return true
 	}
 
 	// default is to block access
-	fmt.Println("default")
 	return false
 }

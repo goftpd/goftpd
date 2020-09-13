@@ -1,7 +1,6 @@
 package acl
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -115,7 +114,6 @@ func TestAllowed(t *testing.T) {
 				}
 
 				if acl.Allowed(tt.user) != tt.expected {
-					fmt.Printf("acl: %+v\ntt: %+v\n", acl, tt)
 					t.Errorf("expected %t but got: %t", tt.expected, !tt.expected)
 					return
 				}
