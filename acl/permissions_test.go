@@ -14,10 +14,6 @@ func compareACL(a, b *ACL) bool {
 		return false
 	}
 
-	if !compareSlices(a.allowed.flags, b.allowed.flags) {
-		return false
-	}
-
 	return true
 }
 
@@ -55,8 +51,8 @@ func TestNewRule(t *testing.T) {
 				"/path/test/dir",
 				PermissionScopeDownload,
 				&ACL{
-					collection{false, []string{"user"}, nil, nil},
-					collection{true, nil, nil, nil},
+					collection{false, []string{"user"}, nil},
+					collection{true, nil, nil},
 				},
 			},
 			"",
@@ -67,8 +63,8 @@ func TestNewRule(t *testing.T) {
 				"/path/test/dir",
 				PermissionScopeDownload,
 				&ACL{
-					collection{true, nil, nil, nil},
-					collection{false, []string{"user"}, nil, nil},
+					collection{true, nil, nil},
+					collection{false, []string{"user"}, nil},
 				},
 			},
 			"",
@@ -197,22 +193,22 @@ func TestPermissionsCheck(t *testing.T) {
 	}{
 		{
 			"download /dir/a *",
-			TestUser{"user", nil, nil},
+			TestUser{"user", nil},
 			true,
 		},
 		{
 			"download /dir/a !*",
-			TestUser{"user", nil, nil},
+			TestUser{"user", nil},
 			false,
 		},
 		{
 			"download /dir/a -user !*",
-			TestUser{"user", nil, nil},
+			TestUser{"user", nil},
 			true,
 		},
 		{
 			"download /dir/a =group !*",
-			TestUser{"user", []string{"group"}, nil},
+			TestUser{"user", []string{"group"}},
 			true,
 		},
 	}

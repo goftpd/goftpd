@@ -1,10 +1,11 @@
 // Package acl provides primitives for creating and checking permissions
-// based on user, group and flags
+// based on user and groups
 package acl
 
 import (
-	"errors"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 var ErrPermissionDenied = errors.New("permission denied")
@@ -13,18 +14,16 @@ var ErrPermissionDenied = errors.New("permission denied")
 type User interface {
 	Name() string
 	Groups() []string
-	Flags() []string
 }
 
 // collection is a container for the three different permission types,
-// users, group and flags. Provides utilities for checking if the collection
+// users and group. Provides utilities for checking if the collection
 // contains a provided entity
 type collection struct {
 	all bool
 
 	users  []string
 	groups []string
-	flags  []string
 }
 
 // ACL provides utilities for checking if a subject has permission to perform
@@ -38,7 +37,6 @@ type ACL struct {
 // a method for checking permissions. An entity is a user with the following attributes:
 // - name
 // - list of groups
-// - list of flags
 //
 // When describing permissions use the following (glftpd) syntax:
 // - `-` prefix describes a user, i.e. `-userName`
@@ -50,10 +48,8 @@ type ACL struct {
 // Currently the order of checking is:
 // - blocked users
 // - blocked groups
-// - blocked flags
-// - allowed user
+// - allowed users
 // - allowed groups
-// - allowed flags
 // - blocked all (!*)
 // - allowed all (*)
 //
@@ -116,11 +112,11 @@ func NewFromString(s string) (*ACL, error) {
 			}
 
 		default:
-			if f == "*" {
-				c.all = true
-			} else {
-				c.groups = append(c.groups, f)
+			if f != "*" {
+				return nil, errors.Errorf("unexpected string in acl input: '%s'", f)
 			}
+
+			c.all = true
 		}
 	}
 
@@ -148,11 +144,6 @@ func (c *collection) hasGroup(g string) bool {
 	return c.has(c.groups, g)
 }
 
-// hasFlag checks to see if the flags slice contains given flag
-func (c *collection) hasFlag(f string) bool {
-	return c.has(c.flags, f)
-}
-
 // UserAllowed checks to see if given User is allowed or blocked. Default is to
 // block access
 func (a *ACL) Allowed(u User) bool {
@@ -168,13 +159,6 @@ func (a *ACL) Allowed(u User) bool {
 		}
 	}
 
-	flags := u.Flags()
-	for idx := range flags {
-		if a.blocked.hasFlag(flags[idx]) {
-			return false
-		}
-	}
-
 	// check allowed lists
 	if a.allowed.hasUser(u.Name()) {
 		return true
@@ -186,13 +170,7 @@ func (a *ACL) Allowed(u User) bool {
 		}
 	}
 
-	for idx := range flags {
-		if a.allowed.hasFlag(flags[idx]) {
-			return true
-		}
-	}
-
-	// fall back to all flags
+	// fall back to catchalls '*' '!*'
 	if a.blocked.all {
 		return false
 	}

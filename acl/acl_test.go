@@ -9,12 +9,13 @@ func TestNewFromString(t *testing.T) {
 		input string
 		err   string
 	}{
-		{"-user =group 1", ""},
+		{"-user =group", ""},
 		{"", "no input string given"},
-		{"- =group 1", "expected string after '-'"},
-		{"-user = 1", "expected string after '='"},
-		{"! -user =group !flag", "expected string after '!'"},
-		{"1 2 3 4 -u1 -u2 -u3 !-u4 =g1", ""},
+		{"- =group", "expected string after '-'"},
+		{"-user =", "expected string after '='"},
+		{"! -user =group", "expected string after '!'"},
+		{"-u1 -u2 -u3 !-u4 =g1", ""},
+		{"something", "unexpected string in acl input: 'something'"},
 	}
 
 	for _, tt := range tests {
@@ -45,7 +46,6 @@ func TestNewFromString(t *testing.T) {
 type TestUser struct {
 	name   string
 	groups []string
-	flags  []string
 }
 
 func (u TestUser) Name() string {
@@ -56,10 +56,6 @@ func (u TestUser) Groups() []string {
 	return u.groups
 }
 
-func (u TestUser) Flags() []string {
-	return u.flags
-}
-
 func TestAllowed(t *testing.T) {
 	var tests = []struct {
 		input    string
@@ -68,37 +64,31 @@ func TestAllowed(t *testing.T) {
 	}{
 		{
 			"-testUser *",
-			TestUser{"testUser", []string{""}, []string{""}},
+			TestUser{"testUser", nil},
 			true,
 		},
 		// check specifying user overrides blocking all
 		{
 			"-testUser !*",
-			TestUser{"testUser", []string{""}, []string{""}},
+			TestUser{"testUser", nil},
 			true,
 		},
 		// check denying user overrides allowing all
 		{
 			"!-testUser *",
-			TestUser{"testUser", []string{""}, []string{""}},
+			TestUser{"testUser", nil},
 			false,
 		},
 		// check denying user overrides allowing group
 		{
 			"!-testUser =testGroup",
-			TestUser{"testUser", []string{"testGroup"}, []string{""}},
-			false,
-		},
-		// check denying user overrides flag
-		{
-			"!-testUser 1",
-			TestUser{"testUser", []string{""}, []string{"1"}},
+			TestUser{"testUser", []string{"testGroup"}},
 			false,
 		},
 		// check capitalisation doesnt matter
 		{
 			"-testUser !*",
-			TestUser{"testuser", []string{}, []string{""}},
+			TestUser{"testuser", nil},
 			true,
 		},
 	}
