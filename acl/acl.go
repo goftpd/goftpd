@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+var ErrPermissionDenied = errors.New("permission denied")
+
 // User is an interface used to check against an ACL
 type User interface {
 	Name() string
