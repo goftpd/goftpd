@@ -1,6 +1,7 @@
 package vfs
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/dgraph-io/badger/v2"
@@ -153,6 +154,37 @@ func TestShadowStoreCreateVal(t *testing.T) {
 
 	if err.Error() != "group can't contain ':'" {
 		t.Errorf("unexpected error for bad group createVal: %s", err)
+		return
+	}
+}
+
+func TestShadowStoreBadValue(t *testing.T) {
+	ss := newMemoryShadowStore(t)
+	defer closeMemoryShadowStore(t, ss)
+
+	path := "/a/b/c"
+	badValue := "bad"
+
+	key := ss.Hash(path)
+
+	err := ss.(*ShadowStore).store.Update(func(txn *badger.Txn) error {
+		return txn.Set(key, []byte(badValue))
+	})
+	if err != nil {
+		t.Errorf("unexpected error for manual insert of key: %s", err)
+		return
+	}
+
+	_, _, err = ss.Get(path)
+	if err == nil {
+		t.Error("expected error on get")
+		return
+	}
+
+	expectedErr := fmt.Sprintf("expected 2 parts to key: '%x': '%s'", key, badValue)
+
+	if err.Error() != expectedErr {
+		t.Errorf("unexpected error: %s", err)
 		return
 	}
 }
