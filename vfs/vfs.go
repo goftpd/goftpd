@@ -69,8 +69,8 @@ func (fs *Filesystem) MakeDir(path string, user acl.User) error {
 }
 
 // DownloadFile checks to see if the user has permission to read the file (checking download
-// permissions from high level to low level). Returns an io.Reader if allowed
-func (fs *Filesystem) DownloadFile(path string, user acl.User) (io.Reader, error) {
+// permissions from high level to low level). Returns an io.ReadCloser if allowed
+func (fs *Filesystem) DownloadFile(path string, user acl.User) (io.ReadCloser, error) {
 	if !fs.permissions.Allowed(acl.PermissionScopeDownload, path, user) {
 		return nil, acl.ErrPermissionDenied
 	}
@@ -91,7 +91,7 @@ func (fs *Filesystem) UploadFile(path string, user acl.User) (io.WriteCloser, er
 		return nil, acl.ErrPermissionDenied
 	}
 
-	f, err := fs.chroot.OpenFile(path, os.O_RDWR|os.O_CREATE, defaultPerms)
+	f, err := fs.chroot.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, defaultPerms)
 	if err != nil {
 		return nil, err
 	}

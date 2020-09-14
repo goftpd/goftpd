@@ -12,8 +12,7 @@ func newMemoryShadowStore(t *testing.T) Shadow {
 
 	db, err := badger.Open(opt)
 	if err != nil {
-		t.Errorf("error opening db: %s", err)
-		return nil
+		t.Fatalf("error opening db: %s", err)
 	}
 
 	ss := NewShadowStore(db)
@@ -23,7 +22,7 @@ func newMemoryShadowStore(t *testing.T) Shadow {
 
 func closeMemoryShadowStore(t *testing.T, ss Shadow) {
 	if err := ss.Close(); err != nil {
-		t.Errorf("error closing shadow: %s", err)
+		t.Fatalf("error closing shadow: %s", err)
 	}
 }
 
@@ -55,26 +54,22 @@ func TestShadowStore(t *testing.T) {
 	// do adds
 	for _, e := range entries {
 		if err := ss.Set(e.path, e.user, e.group); err != nil {
-			t.Errorf("unexpected err adding %s:%s:%s: %s", e.path, e.user, e.group, err)
-			return
+			t.Fatalf("unexpected err adding %s:%s:%s: %s", e.path, e.user, e.group, err)
 		}
 	}
 
 	for _, e := range expected {
 		user, group, err := ss.Get(e.path)
 		if err != nil {
-			t.Errorf("unexpected err getting %s: %s", e.path, err)
-			return
+			t.Fatalf("unexpected err getting %s: %s", e.path, err)
 		}
 
 		if user != e.user {
 			t.Errorf("expected user for '%s' to be '%s' got '%s'", e.path, e.user, user)
-			return
 		}
 
 		if group != e.group {
 			t.Errorf("expected group for '%s' to be '%s' got '%s'", e.path, e.group, group)
-			return
 		}
 	}
 }
@@ -90,34 +85,28 @@ func TestShadowStoreRemove(t *testing.T) {
 	)
 
 	if err := ss.Set(path, user, group); err != nil {
-		t.Errorf("expected nil on add got: %s", err)
-		return
+		t.Fatalf("expected nil on add got: %s", err)
 	}
 
 	guser, ggroup, err := ss.Get(path)
 	if err != nil {
-		t.Errorf("expected nil on get got: %s", err)
-		return
+		t.Fatalf("expected nil on get got: %s", err)
 	}
 
 	if guser != user {
 		t.Errorf("expected user to be '%s' got '%s'", user, guser)
-		return
 	}
 
 	if ggroup != group {
 		t.Errorf("expected group to be '%s' got '%s'", group, ggroup)
-		return
 	}
 
 	if err := ss.Remove(path); err != nil {
-		t.Errorf("expected nil on remove got: %s", err)
-		return
+		t.Fatalf("expected nil on remove got: %s", err)
 	}
 
 	if _, _, err := ss.Get(path); err != ErrNoPath {
-		t.Errorf("expected ErrNoPath on post remove get, got: %s", err)
-		return
+		t.Fatalf("expected ErrNoPath on post remove get, got: %s", err)
 	}
 }
 
@@ -126,45 +115,37 @@ func TestShadowStoreCreateVal(t *testing.T) {
 
 	val, err := ss.createVal("user", "group")
 	if err != nil {
-		t.Errorf("unexpected err: %s", err)
-		return
+		t.Fatalf("unexpected err: %s", err)
 	}
 
 	if string(val) != "user:group" {
-		t.Errorf("unexpected val: '%s'", string(val))
-		return
+		t.Fatalf("unexpected val: '%s'", string(val))
 	}
 
 	val, err = ss.createVal("user:", "group")
 	if err == nil {
-		t.Error("expected bad user createVal to error")
-		return
+		t.Fatal("expected bad user createVal to error")
 	}
 
 	if err.Error() != "user can't contain ':'" {
-		t.Errorf("unexpected error for bad user createVal: %s", err)
-		return
+		t.Fatalf("unexpected error for bad user createVal: %s", err)
 	}
 
 	val, err = ss.createVal("user", "group:")
 	if err == nil {
-		t.Error("expected bad group createVal to error")
-		return
+		t.Fatal("expected bad group createVal to error")
 	}
 
 	if err.Error() != "group can't contain ':'" {
-		t.Errorf("unexpected error for bad group createVal: %s", err)
-		return
+		t.Fatalf("unexpected error for bad group createVal: %s", err)
 	}
 
 	err = ss.Set("/", "user:", "group")
 	if err == nil {
-		t.Error("expected err but got nil")
-		return
+		t.Fatal("expected err but got nil")
 	}
 	if err.Error() != "user can't contain ':'" {
-		t.Errorf("unexpected error for bad user Set: %s", err)
-		return
+		t.Fatalf("unexpected error for bad user Set: %s", err)
 	}
 
 }
@@ -182,20 +163,17 @@ func TestShadowStoreBadValue(t *testing.T) {
 		return txn.Set(key, []byte(badValue))
 	})
 	if err != nil {
-		t.Errorf("unexpected error for manual insert of key: %s", err)
-		return
+		t.Fatalf("unexpected error for manual insert of key: %s", err)
 	}
 
 	_, _, err = ss.Get(path)
 	if err == nil {
-		t.Error("expected error on get")
-		return
+		t.Fatal("expected error on get")
 	}
 
 	expectedErr := fmt.Sprintf("expected 2 parts to key: '%x': '%s'", key, badValue)
 
 	if err.Error() != expectedErr {
-		t.Errorf("unexpected error: %s", err)
-		return
+		t.Fatalf("unexpected error: %s", err)
 	}
 }

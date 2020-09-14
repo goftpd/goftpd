@@ -29,18 +29,15 @@ func TestNewFromString(t *testing.T) {
 				_, err := NewFromString(tt.input)
 
 				if err != nil && len(tt.err) == 0 {
-					t.Errorf("expected nil but got: '%s'", err)
-					return
+					t.Fatalf("expected nil but got: '%s'", err)
 				}
 
 				if err != nil && tt.err != err.Error() {
-					t.Errorf("expected '%s' but got: '%s'", tt.err, err)
-					return
+					t.Fatalf("expected '%s' but got: '%s'", tt.err, err)
 				}
 
 				if err == nil && len(tt.err) > 0 {
-					t.Errorf("expected '%s' but got nil", err)
-					return
+					t.Fatalf("expected '%s' but got nil", err)
 				}
 			},
 		)
@@ -116,13 +113,11 @@ func TestAllowed(t *testing.T) {
 			func(t *testing.T) {
 				acl, err := NewFromString(tt.input)
 				if err != nil {
-					t.Errorf("expected nil but got: '%s'", err)
-					return
+					t.Fatalf("expected nil but got: '%s'", err)
 				}
 
 				if acl.Allowed(tt.user) != tt.expected {
 					t.Errorf("expected %t but got: %t", tt.expected, !tt.expected)
-					return
 				}
 			},
 		)

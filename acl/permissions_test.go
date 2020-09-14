@@ -101,34 +101,28 @@ func TestNewRule(t *testing.T) {
 			func(t *testing.T) {
 				rule, err := NewRule(tt.input)
 				if err != nil && len(tt.err) == 0 {
-					t.Errorf("expected nil but got: '%s'", err)
-					return
+					t.Fatalf("expected nil but got: '%s'", err)
 				}
 
 				if err != nil && tt.err != err.Error() {
-					t.Errorf("expected '%s' but got: '%s'", tt.err, err)
-					return
+					t.Fatalf("expected '%s' but got: '%s'", tt.err, err)
 				}
 
 				if err == nil && len(tt.err) > 0 {
-					t.Errorf("expected '%s' but got nil", tt.err)
-					return
+					t.Fatalf("expected '%s' but got nil", tt.err)
 				}
 
 				if tt.rule.path != rule.path {
 					t.Errorf("expected path to be '%s' but got '%s'", tt.rule.path, rule.path)
-					return
 				}
 
 				if tt.rule.scope != rule.scope {
 					t.Errorf("expected scope to be '%s' but got '%s'", tt.rule.scope, rule.scope)
-					return
 				}
 
 				if tt.rule.acl != nil && rule.acl != nil {
 					if !compareACL(tt.rule.acl, rule.acl) {
 						t.Error("acl do not match")
-						return
 					}
 				}
 			},
@@ -169,25 +163,21 @@ func TestNewPermissions(t *testing.T) {
 				for _, l := range tt.lines {
 					r, err := NewRule(l)
 					if err != nil {
-						t.Errorf("unable to parse rule '%s': %s", l, err)
-						return
+						t.Fatalf("unable to parse rule '%s': %s", l, err)
 					}
 					rules = append(rules, r)
 				}
 				_, err := NewPermissions(rules)
 				if err != nil && len(tt.err) == 0 {
-					t.Errorf("expected nil but got: '%s'", err)
-					return
+					t.Fatalf("expected nil but got: '%s'", err)
 				}
 
 				if err != nil && len(tt.err) > 0 && err.Error() != tt.err {
-					t.Errorf("expected '%s' but got: '%s'", tt.err, err)
-					return
+					t.Fatalf("expected '%s' but got: '%s'", tt.err, err)
 				}
 
 				if err == nil && len(tt.err) > 0 {
-					t.Errorf("expected '%s' but got nil", tt.err)
-					return
+					t.Fatalf("expected '%s' but got nil", tt.err)
 				}
 			},
 		)
@@ -259,20 +249,17 @@ func TestPermissionsCheck(t *testing.T) {
 			func(t *testing.T) {
 				r, err := NewRule(tt.input)
 				if err != nil {
-					t.Errorf("unable to parse rule '%s': %s", tt.input, err)
-					return
+					t.Fatalf("unable to parse rule '%s': %s", tt.input, err)
 				}
 
 				p, err := NewPermissions([]Rule{r})
 				if err != nil {
-					t.Errorf("unable to create Permissions: %s", err)
-					return
+					t.Fatalf("unable to create Permissions: %s", err)
 				}
 
 				allowed := p.Allowed(tt.scope, tt.path, tt.user)
 				if allowed != tt.expected {
 					t.Errorf("expected %t got %t", tt.expected, allowed)
-					return
 				}
 			},
 		)
