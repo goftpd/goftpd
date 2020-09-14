@@ -16,6 +16,10 @@ func TestNewFromString(t *testing.T) {
 		{"! -user =group", "expected string after '!'"},
 		{"-u1 -u2 -u3 !-u4 =g1", ""},
 		{"something", "unexpected string in acl input: 'something'"},
+		{"-*", "bad user '*'"},
+		{"=*", "bad group '*'"},
+		{"-_", "user contains invalid characters: '_'"},
+		{"=:", "group contains invalid characters: ':'"},
 	}
 
 	for _, tt := range tests {
@@ -97,6 +101,12 @@ func TestAllowed(t *testing.T) {
 			"-testUser !*",
 			TestUser{"testuser", nil},
 			true,
+		},
+		// check banned group
+		{
+			"!=testGroup *",
+			TestUser{"testuser", []string{"testGroup"}},
+			false,
 		},
 	}
 

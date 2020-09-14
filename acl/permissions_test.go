@@ -84,6 +84,15 @@ func TestNewRule(t *testing.T) {
 			Rule{},
 			"rule requires minimum of 3 fields",
 		},
+		{
+			"download /path/test !-*",
+			Rule{
+				"/path/test",
+				PermissionScopeDownload,
+				nil,
+			},
+			"bad user '*'",
+		},
 	}
 
 	for _, tt := range tests {
@@ -188,33 +197,59 @@ func TestNewPermissions(t *testing.T) {
 func TestPermissionsCheck(t *testing.T) {
 	var tests = []struct {
 		input    string
+		path     string
+		scope    PermissionScope
 		user     TestUser
 		expected bool
 	}{
 		{
 			"download /dir/a *",
+			"/dir/a",
+			PermissionScopeDownload,
 			TestUser{"user", nil},
 			true,
 		},
 		{
 			"download /dir/a !*",
+			"/dir/a",
+			PermissionScopeDownload,
 			TestUser{"user", nil},
 			false,
 		},
 		{
 			"download /dir/a -user !*",
+			"/dir/a",
+			PermissionScopeDownload,
 			TestUser{"user", nil},
 			true,
 		},
 		{
 			"download /dir/a =group !*",
+			"/dir/a",
+			PermissionScopeDownload,
 			TestUser{"user", []string{"group"}},
 			true,
 		},
 		{
 			"download / =group !*",
+			"/dir/a",
+			PermissionScopeDownload,
 			TestUser{"user", []string{"group"}},
 			true,
+		},
+		{
+			"download / =group !*",
+			"/dir/a",
+			PermissionScopeUpload,
+			TestUser{"user", []string{"group"}},
+			false,
+		},
+		{
+			"download /some/path =group !*",
+			"/dir/a",
+			PermissionScopeDownload,
+			TestUser{"user", []string{"group"}},
+			false,
 		},
 	}
 
@@ -234,7 +269,7 @@ func TestPermissionsCheck(t *testing.T) {
 					return
 				}
 
-				allowed := p.Allowed(r.scope, r.path, tt.user)
+				allowed := p.Allowed(tt.scope, tt.path, tt.user)
 				if allowed != tt.expected {
 					t.Errorf("expected %t got %t", tt.expected, allowed)
 					return

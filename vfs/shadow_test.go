@@ -156,6 +156,17 @@ func TestShadowStoreCreateVal(t *testing.T) {
 		t.Errorf("unexpected error for bad group createVal: %s", err)
 		return
 	}
+
+	err = ss.Set("/", "user:", "group")
+	if err == nil {
+		t.Error("expected err but got nil")
+		return
+	}
+	if err.Error() != "user can't contain ':'" {
+		t.Errorf("unexpected error for bad user Set: %s", err)
+		return
+	}
+
 }
 
 func TestShadowStoreBadValue(t *testing.T) {

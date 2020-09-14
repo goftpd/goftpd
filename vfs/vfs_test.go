@@ -64,6 +64,14 @@ func newMemoryFilesystem(t *testing.T, lines []string) *Filesystem {
 	return fs
 }
 
+func stopMemoryFilesystem(t *testing.T, fs *Filesystem) {
+	err := fs.Stop()
+	if err != nil {
+		t.Errorf("unexpected error stopping filesystem: %s", err)
+		return
+	}
+}
+
 func TestNewFilesystemMakeDir(t *testing.T) {
 	var tests = []struct {
 		line  string
@@ -111,6 +119,7 @@ func TestNewFilesystemMakeDir(t *testing.T) {
 					t.Error("unexpected nil for fs")
 					return
 				}
+				defer stopMemoryFilesystem(t, fs)
 
 				f, err := fs.chroot.Create("/file")
 				if err != nil {

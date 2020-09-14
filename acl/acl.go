@@ -3,10 +3,13 @@
 package acl
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
 )
+
+var AllowedUserAndGroupCharsRE = regexp.MustCompile(`[a-zA-Z0-9]`)
 
 var ErrPermissionDenied = errors.New("acl permission denied")
 
@@ -67,10 +70,6 @@ func NewFromString(s string) (*ACL, error) {
 	var c *collection
 
 	for _, f := range fields {
-		if len(f) == 0 {
-			continue
-		}
-
 		c = &a.allowed
 
 		if f[0] == '!' {
@@ -93,10 +92,14 @@ func NewFromString(s string) (*ACL, error) {
 			f = f[1:]
 
 			if f == "*" {
-				c.all = true
-			} else {
-				c.users = append(c.users, f)
+				return nil, errors.New("bad user '*'")
 			}
+
+			if !AllowedUserAndGroupCharsRE.MatchString(f) {
+				return nil, errors.Errorf("user contains invalid characters: '%s'", f)
+			}
+
+			c.users = append(c.users, f)
 
 		case '=':
 			// group specific acl
@@ -107,10 +110,14 @@ func NewFromString(s string) (*ACL, error) {
 			f = f[1:]
 
 			if f == "*" {
-				c.all = true
-			} else {
-				c.groups = append(c.groups, f)
+				return nil, errors.New("bad group '*'")
 			}
+
+			if !AllowedUserAndGroupCharsRE.MatchString(f) {
+				return nil, errors.Errorf("group contains invalid characters: '%s'", f)
+			}
+
+			c.groups = append(c.groups, f)
 
 		default:
 			if f != "*" {
@@ -119,6 +126,7 @@ func NewFromString(s string) (*ACL, error) {
 
 			c.all = true
 		}
+
 	}
 
 	return &a, nil
@@ -176,10 +184,5 @@ func (a *ACL) Allowed(u User) bool {
 		return false
 	}
 
-	if a.allowed.all {
-		return true
-	}
-
-	// default is to block access
-	return false
+	return a.allowed.all
 }
