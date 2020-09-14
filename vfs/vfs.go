@@ -173,6 +173,10 @@ func (fs *Filesystem) RenameFile(oldpath, newpath string, user acl.User) error {
 		}
 	}
 
+	if oldpath == newpath {
+		return errors.New("can not rename to self")
+	}
+
 	if err := fs.chroot.Rename(oldpath, newpath); err != nil {
 		return err
 	}

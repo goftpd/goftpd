@@ -176,7 +176,7 @@ func TestUploadFile(t *testing.T) {
 				writer, err := fs.UploadFile(tt.path, tt.user)
 				checkErr(t, err, tt.err)
 
-				if err == nil && len(tt.content) > 0 {
+				if tt.err == nil {
 
 					fmt.Fprint(writer, tt.content)
 
@@ -185,6 +185,279 @@ func TestUploadFile(t *testing.T) {
 					}
 
 					username, group, err := fs.shadow.Get(tt.path)
+					if err != nil {
+						t.Fatalf("unexpected err in shadow.Get: %s", err)
+					}
+
+					if username != tt.user.Name() {
+						t.Errorf("expected username to be '%s' got: '%s'", tt.user.Name(), username)
+					}
+
+					if group != "nobody" {
+						t.Errorf("expected group to be nobody got: '%s'", group)
+					}
+				}
+			},
+		)
+	}
+}
+
+func TestResumeUploadFile(t *testing.T) {
+	var tests = []struct {
+		create  bool
+		path    string
+		rules   []string
+		content string
+		owner   TestUser
+		user    TestUser
+		err     error
+	}{
+		{
+			true,
+			"/file",
+			[]string{
+				"resume / *",
+				"upload / *",
+			},
+			"HELLO",
+			newTestUser("user"),
+			newTestUser("user"),
+			nil,
+		},
+		{
+			true,
+			"/file",
+			[]string{
+				"resume / *",
+			},
+			"HELLO",
+			newTestUser("user"),
+			newTestUser("user"),
+			acl.ErrPermissionDenied,
+		},
+		{
+			true,
+			"/file",
+			[]string{
+				"upload / *",
+			},
+			"HELLO",
+			newTestUser("user"),
+			newTestUser("user"),
+			acl.ErrPermissionDenied,
+		},
+		{
+			true,
+			"/file",
+			[]string{
+				"resume / !*",
+				"resumeown / *",
+				"upload / *",
+			},
+			"HELLO",
+			newTestUser("owner"),
+			newTestUser("user"),
+			acl.ErrPermissionDenied,
+		},
+		{
+			true,
+			"/file",
+			[]string{
+				"resume / !*",
+				"resumeown / *",
+				"upload / *",
+			},
+			"HELLO",
+			newTestUser("owner"),
+			newTestUser("owner"),
+			nil,
+		},
+		{
+			false,
+			"/file",
+			[]string{
+				"resume / *",
+				"upload / *",
+			},
+			"NOTHING TO RESUME",
+			newTestUser("owner"),
+			newTestUser("owner"),
+			errors.New("file does not exist"),
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(
+			fmt.Sprintf("%d", idx),
+			func(t *testing.T) {
+				fs := newMemoryFilesystem(t, tt.rules)
+				if fs == nil {
+					t.Fatal("unexpected nil for fs")
+				}
+				defer stopMemoryFilesystem(t, fs)
+
+				// create base file to resume
+				if tt.create {
+					createFile(t, fs, tt.path, tt.content)
+					setShadowOwner(t, fs, tt.path, tt.owner)
+				}
+
+				writer, err := fs.ResumeUploadFile(tt.path, tt.user)
+				checkErr(t, err, tt.err)
+
+				if tt.err == nil {
+
+					fmt.Fprint(writer, tt.content)
+
+					if err := writer.Close(); err != nil {
+						t.Fatalf("unexpected err in close: %s", err)
+					}
+
+					username, group, err := fs.shadow.Get(tt.path)
+					if err != nil {
+						t.Fatalf("unexpected err in shadow.Get: %s", err)
+					}
+
+					if username != tt.user.Name() {
+						t.Errorf("expected username to be '%s' got: '%s'", tt.user.Name(), username)
+					}
+
+					if group != "nobody" {
+						t.Errorf("expected group to be nobody got: '%s'", group)
+					}
+
+					// get file and make sure it is content * 2
+					reader, err := fs.chroot.Open(tt.path)
+					if err != nil {
+						t.Fatalf("unexpected err in chroot.Open: %s", err)
+					}
+
+					b, err := ioutil.ReadAll(reader)
+					if err != nil {
+						t.Fatalf("expected nil reading file got: %s", err)
+					}
+
+					if string(b) != fmt.Sprintf("%s%s", tt.content, tt.content) {
+						t.Fatalf("expected file to be '%s%s' but got: '%s'", tt.content, tt.content, string(b))
+					}
+				}
+			},
+		)
+	}
+}
+
+func TestRenameFile(t *testing.T) {
+	var tests = []struct {
+		create  bool
+		path    string
+		newpath string
+		rules   []string
+		owner   TestUser
+		user    TestUser
+		err     error
+	}{
+		{
+			true,
+			"/file",
+			"/file2",
+			[]string{
+				"rename / *",
+				"upload / *",
+			},
+			newTestUser("user"),
+			newTestUser("user"),
+			nil,
+		},
+		{
+			true,
+			"/file",
+			"/file2",
+			[]string{
+				"rename / !*",
+				"upload / *",
+			},
+			newTestUser("user"),
+			newTestUser("user"),
+			acl.ErrPermissionDenied,
+		},
+		{
+			true,
+			"/file",
+			"/file2",
+			[]string{
+				"rename / *",
+				"upload / *",
+			},
+			newTestUser("owner"),
+			newTestUser("user"),
+			nil,
+		},
+		{
+			true,
+			"/file",
+			"/file2",
+			[]string{
+				"rename / !*",
+				"renameown / *",
+				"upload / *",
+			},
+			newTestUser("user"),
+			newTestUser("user"),
+			nil,
+		},
+		{
+			false,
+			"/file",
+			"/file2",
+			[]string{
+				"rename / *",
+				"upload / *",
+			},
+			newTestUser("user"),
+			newTestUser("user"),
+			errors.New("file does not exist"),
+		},
+		{
+			true,
+			"/file",
+			"/file",
+			[]string{
+				"rename / *",
+				"upload / *",
+			},
+			newTestUser("user"),
+			newTestUser("user"),
+			errors.New("can not rename to self"),
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(
+			fmt.Sprintf("%d", idx),
+			func(t *testing.T) {
+				fs := newMemoryFilesystem(t, tt.rules)
+				if fs == nil {
+					t.Fatal("unexpected nil for fs")
+				}
+				defer stopMemoryFilesystem(t, fs)
+
+				// create base file to resume
+				if tt.create {
+					createFile(t, fs, tt.path, "RENAME FILE")
+					setShadowOwner(t, fs, tt.path, tt.owner)
+				}
+
+				err := fs.RenameFile(tt.path, tt.newpath, tt.user)
+				checkErr(t, err, tt.err)
+
+				if tt.err == nil {
+					// check that shadow doesnt have the old path
+					if _, _, err := fs.shadow.Get(tt.path); err != ErrNoPath {
+						t.Fatalf("expected Get to be ErrNoPath got: %s", err)
+					}
+
+					// check that shadow has the new path
+					username, group, err := fs.shadow.Get(tt.newpath)
 					if err != nil {
 						t.Fatalf("unexpected err in shadow.Get: %s", err)
 					}

@@ -84,6 +84,12 @@ func createFile(t *testing.T, fs *Filesystem, path, contents string) {
 	}
 }
 
+func setShadowOwner(t *testing.T, fs *Filesystem, path string, owner TestUser) {
+	if err := fs.shadow.Set(path, owner.Name(), owner.PrimaryGroup()); err != nil {
+		t.Fatalf("unexpected err setting shadow owner: %s", err)
+	}
+}
+
 func newMemoryFilesystem(t *testing.T, lines []string) *Filesystem {
 	memory := memfs.New()
 
