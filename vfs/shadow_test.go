@@ -7,25 +7,6 @@ import (
 	"github.com/dgraph-io/badger/v2"
 )
 
-func newMemoryShadowStore(t *testing.T) Shadow {
-	opt := badger.DefaultOptions("").WithInMemory(true)
-
-	db, err := badger.Open(opt)
-	if err != nil {
-		t.Fatalf("error opening db: %s", err)
-	}
-
-	ss := NewShadowStore(db)
-
-	return ss
-}
-
-func closeMemoryShadowStore(t *testing.T, ss Shadow) {
-	if err := ss.Close(); err != nil {
-		t.Fatalf("error closing shadow: %s", err)
-	}
-}
-
 func TestShadowStore(t *testing.T) {
 	var entries = []struct {
 		path  string
