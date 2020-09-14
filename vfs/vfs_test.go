@@ -93,6 +93,13 @@ func TestNewFilesystemMakeDir(t *testing.T) {
 			"group",
 			errors.New("file does not exist"),
 		},
+		{
+			"makedir / *",
+			"/file/something",
+			"user",
+			"group",
+			errors.New("parent is not a directory"),
+		},
 	}
 
 	for idx, tt := range tests {
@@ -105,9 +112,22 @@ func TestNewFilesystemMakeDir(t *testing.T) {
 					return
 				}
 
+				f, err := fs.chroot.Create("/file")
+				if err != nil {
+					t.Errorf("unexpected err creating /file: %s", err)
+					return
+				}
+
+				fmt.Fprint(f, "HELLO")
+
+				if err := f.Close(); err != nil {
+					t.Errorf("unexpected err closing /file: %s", err)
+					return
+				}
+
 				user := TestUser{tt.user, []string{tt.group}}
 
-				err := fs.MakeDir(tt.path, user)
+				err = fs.MakeDir(tt.path, user)
 				if err == nil && tt.err != nil {
 					t.Errorf("unexpected nil wanted: %s", tt.err)
 					return
