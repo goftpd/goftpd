@@ -56,6 +56,13 @@ func (u TestUser) Groups() []string {
 	return u.groups
 }
 
+func (u TestUser) PrimaryGroup() string {
+	if len(u.groups) > 0 {
+		return u.groups[0]
+	}
+	return "nobody"
+}
+
 func TestAllowed(t *testing.T) {
 	var tests = []struct {
 		input    string
