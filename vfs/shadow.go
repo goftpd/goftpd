@@ -36,6 +36,8 @@ type ShadowStore struct {
 	store *badger.DB
 }
 
+// NewShadowStore creates a new ShadowStore with the given badger db. Caller
+// is responsible for opening the db to make it easier to test.
 func NewShadowStore(db *badger.DB) Shadow {
 	s := ShadowStore{
 		store: db,
@@ -55,6 +57,8 @@ func (s *ShadowStore) Hash(path string) []byte {
 	return b
 }
 
+// createVal does some validation on the given user and group to make sure that
+// they can safely be placed in the store
 func (s *ShadowStore) createVal(user, group string) ([]byte, error) {
 	if strings.Contains(user, shadowEntrySplitter) {
 		return nil, errors.Errorf("user can't contain '%s'", shadowEntrySplitter)
@@ -136,7 +140,7 @@ func (s *ShadowStore) Get(path string) (string, string, error) {
 	return user, group, nil
 }
 
-// Remove deletes an entry
+// Remove deletes an entry from the store
 func (s *ShadowStore) Remove(path string) error {
 	key := s.Hash(path)
 
