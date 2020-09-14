@@ -124,6 +124,24 @@ func TestNewFilesystemMakeDir(t *testing.T) {
 						return
 					}
 				}
+
+				if tt.err == nil {
+					username, group, err := fs.shadow.Get(tt.path)
+					if err != nil {
+						t.Errorf("expected nil but got '%s' for shadow.Get", err)
+						return
+					}
+
+					if username != tt.user {
+						t.Errorf("expected shadow to be '%s' but got '%s'", tt.user, username)
+						return
+					}
+
+					if group != tt.group {
+						t.Errorf("expected shadow to be '%s' but got '%s'", tt.group, group)
+						return
+					}
+				}
 			},
 		)
 	}
