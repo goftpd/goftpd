@@ -54,7 +54,7 @@ func TestShadowStore(t *testing.T) {
 
 	// do adds
 	for _, e := range entries {
-		if err := ss.Add(e.path, e.user, e.group); err != nil {
+		if err := ss.Set(e.path, e.user, e.group); err != nil {
 			t.Errorf("unexpected err adding %s:%s:%s: %s", e.path, e.user, e.group, err)
 			return
 		}
@@ -89,7 +89,7 @@ func TestShadowStoreRemove(t *testing.T) {
 		group string = "group"
 	)
 
-	if err := ss.Add(path, user, group); err != nil {
+	if err := ss.Set(path, user, group); err != nil {
 		t.Errorf("expected nil on add got: %s", err)
 		return
 	}

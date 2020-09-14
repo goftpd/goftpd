@@ -22,7 +22,7 @@ var shadowEntrySplitterBytes = []byte(shadowEntrySplitter)
 // stored
 type Shadow interface {
 	Hash(string) []byte
-	Add(string, string, string) error
+	Set(string, string, string) error
 	Get(string) (string, string, error)
 	Remove(string) error
 	Close() error
@@ -73,9 +73,9 @@ func (s *ShadowStore) createVal(user, group string) ([]byte, error) {
 	return val, nil
 }
 
-// Add a path with it's meta data to the store. Overwrites any
+// Set a path with it's meta data to the store. Overwrites any
 // existing value.
-func (s *ShadowStore) Add(path, user, group string) error {
+func (s *ShadowStore) Set(path, user, group string) error {
 	key := s.Hash(path)
 	val, err := s.createVal(user, group)
 	if err != nil {

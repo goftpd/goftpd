@@ -1,9 +1,9 @@
 package vfs
 
 import (
-	"errors"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/goftpd/goftpd/acl"
@@ -15,9 +15,12 @@ type Filesystem struct {
 	permissions acl.Permissions
 }
 
-func New(chroot billy.Filesystem, permissions acl.Permissions) (*Filesystem, error) {
+// Create a new Filesystem with the given chroot (underlying fs) shadow (stores user/group meta data
+// and permissions (check acl for paths, users and different scopes)
+func New(chroot billy.Filesystem, shadow Shadow, permissions acl.Permissions) (*Filesystem, error) {
 	fs := Filesystem{
 		chroot:      chroot,
+		shadow:      shadow,
 		permissions: permissions,
 	}
 
@@ -42,7 +45,7 @@ func (fs *Filesystem) DownloadFile(path string, user acl.User) (io.Reader, error
 // UploadFile checks to see if the user has permission to write the file (checking upload
 // permissions from high level to low level). Returns an io.Writer if allowed. Does not
 // truncate a file
-func (fs *Filesystem) UploadFile(path string, user acl.User) (io.Writer, error) {
+func (fs *Filesystem) UploadFile(path string, user acl.User) (io.WriteCloser, error) {
 	if !fs.permissions.Allowed(acl.PermissionScopeUpload, path, user) {
 		return nil, acl.ErrPermissionDenied
 	}
@@ -52,7 +55,53 @@ func (fs *Filesystem) UploadFile(path string, user acl.User) (io.Writer, error) 
 		return nil, err
 	}
 
-	return f, nil
+	// wrap the file in our special Writer that allows us to manage the shadow fs
+	writer := newWriteCloser(f, func() error {
+		return fs.shadow.Set(path, user.Name(), user.PrimaryGroup())
+	})
+
+	return writer, nil
+}
+
+// ResumeUploadFile checks to see if the user has permission to write the file (checking upload
+// permissions from high level to low level). It also checks to see if they have resume writes.
+// Returns an io.Writer if allowed.
+func (fs *Filesystem) ResumeUploadFile(path string, user acl.User) (io.WriteCloser, error) {
+	if !fs.permissions.Allowed(acl.PermissionScopeUpload, path, user) {
+		return nil, acl.ErrPermissionDenied
+	}
+
+	if !fs.permissions.Allowed(acl.PermissionScopeResume, path, user) {
+		// not allowed to globally resume, check if this is ours and we can resume our own
+		if !fs.permissions.Allowed(acl.PermissionScopeResumeOwn, path, user) {
+			return nil, acl.ErrPermissionDenied
+		}
+
+		owner, err := fs.checkOwnership(path, user)
+		if err != nil {
+			return nil, err
+		}
+
+		if !owner {
+			return nil, acl.ErrPermissionDenied
+		}
+	}
+
+	f, err := fs.chroot.OpenFile(path, os.O_RDWR|os.O_APPEND, 0666)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := f.Seek(0, os.SEEK_END); err != nil {
+		return nil, err
+	}
+
+	// wrap the file in our special Writer that allows us to manage the shadow fs
+	writer := newWriteCloser(f, func() error {
+		return fs.shadow.Set(path, user.Name(), user.PrimaryGroup())
+	})
+
+	return writer, nil
 }
 
 // RenameFile checks to see if the user has permission to rename the file (checking rename and
@@ -87,6 +136,14 @@ func (fs *Filesystem) RenameFile(oldpath, newpath string, user acl.User) error {
 		return err
 	}
 
+	if err := fs.shadow.Remove(oldpath); err != nil {
+		return err
+	}
+
+	if err := fs.shadow.Set(newpath, user.Name(), user.PrimaryGroup()); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -117,21 +174,24 @@ func (fs *Filesystem) DeleteFile(path string, user acl.User) error {
 		return err
 	}
 
+	if err := fs.shadow.Remove(path); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 // checkOwnership checks to see if a user is an owner of a given path. Returns bool
 // and an error
 func (fs *Filesystem) checkOwnership(path string, user acl.User) (bool, error) {
-	// stat the file to check ownership
-	// finfo, err := fs.chroot.Stat(path)
-	// if err != nil {
-	// 	return false, err
-	// }
+	username, _, err := fs.shadow.Get(path)
+	if err != nil {
+		return false, err
+	}
 
-	// if finfo.User != user {
-	// 		return nil, acl.ErrPermissionDenied
-	// }
+	if username != strings.ToLower(user.Name()) {
+		return false, nil
+	}
 
-	return false, errors.New("stub")
+	return true, nil
 }
