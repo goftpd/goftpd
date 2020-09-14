@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var ErrPermissionDenied = errors.New("permission denied")
+var ErrPermissionDenied = errors.New("acl permission denied")
 
 // User is an interface used to check against an ACL
 type User interface {

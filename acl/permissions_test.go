@@ -211,6 +211,11 @@ func TestPermissionsCheck(t *testing.T) {
 			TestUser{"user", []string{"group"}},
 			true,
 		},
+		{
+			"download / =group !*",
+			TestUser{"user", []string{"group"}},
+			true,
+		},
 	}
 
 	for _, tt := range tests {

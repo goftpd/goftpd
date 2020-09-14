@@ -86,10 +86,15 @@ func (p *Permissions) Allowed(scope PermissionScope, path string, user User) boo
 	// all paths are represented as unix, although they can be run on windows
 	parts := strings.Split(path, "/")
 
-	for i := len(parts); i > 0; i-- {
+	for i := len(parts); i >= 0; i-- {
 		if acl, ok := s[strings.Join(parts[:i], "/")]; ok {
 			return acl.Allowed(user)
 		}
+	}
+
+	// check "/" explicitly
+	if acl, ok := s["/"]; ok {
+		return acl.Allowed(user)
 	}
 
 	return false

@@ -3,21 +3,25 @@ package vfs
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/goftpd/goftpd/acl"
+	"github.com/pkg/errors"
 )
+
+var defaultPerms os.FileMode = 0666
 
 type Filesystem struct {
 	chroot      billy.Filesystem
 	shadow      Shadow
-	permissions acl.Permissions
+	permissions *acl.Permissions
 }
 
-// Create a new Filesystem with the given chroot (underlying fs) shadow (stores user/group meta data
+// NewFilesystem creates a new Filesystem with the given chroot (underlying fs) shadow (stores user/group meta data
 // and permissions (check acl for paths, users and different scopes)
-func New(chroot billy.Filesystem, shadow Shadow, permissions acl.Permissions) (*Filesystem, error) {
+func NewFilesystem(chroot billy.Filesystem, shadow Shadow, permissions *acl.Permissions) (*Filesystem, error) {
 	fs := Filesystem{
 		chroot:      chroot,
 		shadow:      shadow,
@@ -25,6 +29,43 @@ func New(chroot billy.Filesystem, shadow Shadow, permissions acl.Permissions) (*
 	}
 
 	return &fs, nil
+}
+
+func (fs *Filesystem) Stop() error {
+	if err := fs.shadow.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// MakeDir checks to see if the user has permission to create a new directory. Does so if allowed
+func (fs *Filesystem) MakeDir(path string, user acl.User) error {
+	if !fs.permissions.Allowed(acl.PermissionScopeMakeDir, path, user) {
+		return acl.ErrPermissionDenied
+	}
+
+	// make sure the base exists and is a directory
+	path = filepath.Clean(path)
+	dir := filepath.Dir(path)
+
+	finfo, err := fs.chroot.Stat(dir)
+	if err != nil {
+		return err
+	}
+
+	if !finfo.IsDir() {
+		return errors.New("parent is not a directory")
+	}
+
+	if err := fs.chroot.MkdirAll(path, defaultPerms); err != nil {
+		return err
+	}
+
+	if err := fs.shadow.Set(path, user.Name(), user.PrimaryGroup()); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // DownloadFile checks to see if the user has permission to read the file (checking download
@@ -50,7 +91,7 @@ func (fs *Filesystem) UploadFile(path string, user acl.User) (io.WriteCloser, er
 		return nil, acl.ErrPermissionDenied
 	}
 
-	f, err := fs.chroot.OpenFile(path, os.O_RDWR|os.O_CREATE, 0666)
+	f, err := fs.chroot.OpenFile(path, os.O_RDWR|os.O_CREATE, defaultPerms)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +128,7 @@ func (fs *Filesystem) ResumeUploadFile(path string, user acl.User) (io.WriteClos
 		}
 	}
 
-	f, err := fs.chroot.OpenFile(path, os.O_RDWR|os.O_APPEND, 0666)
+	f, err := fs.chroot.OpenFile(path, os.O_RDWR|os.O_APPEND, defaultPerms)
 	if err != nil {
 		return nil, err
 	}
