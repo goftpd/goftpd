@@ -6,24 +6,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-// PermissionScope is an "enum" for the different permissions
-// supported
-type PermissionScope string
-
-const (
-	PermissionScopeDownload PermissionScope = "download"
-)
-
-var StringToPermissionScope = map[string]PermissionScope{
-	string(PermissionScopeDownload): PermissionScopeDownload,
-}
-
-// Permissions is a snapshot of the current permissions. They are stored
-// as PermissionScope and then path
-type Permissions struct {
-	current map[PermissionScope]map[string]*ACL
-}
-
 // Rule represents a permission parsed from a config file
 type Rule struct {
 	path  string
@@ -57,6 +39,12 @@ func NewRule(line string) (Rule, error) {
 	rule.acl = acl
 
 	return rule, nil
+}
+
+// Permissions is a snapshot of the current permissions. They are stored
+// as PermissionScope and then path
+type Permissions struct {
+	current map[PermissionScope]map[string]*ACL
 }
 
 // NewPermissions takes a slice of Rules and creates a way for callers to check ACL
