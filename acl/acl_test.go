@@ -2,24 +2,45 @@ package acl
 
 import (
 	"testing"
+
+	"github.com/pkg/errors"
 )
+
+func checkErr(t *testing.T, got, expected error) {
+	if got != nil && expected != nil {
+		if got.Error() != expected.Error() {
+			t.Errorf("expected '%s' but got '%s'", expected, got)
+			return
+		}
+	}
+
+	if got == nil && expected != nil {
+		t.Errorf("expected '%s' but got nil", expected)
+		return
+	}
+
+	if got != nil && expected == nil {
+		t.Errorf("expected nil but got '%s'", got)
+		return
+	}
+}
 
 func TestNewFromString(t *testing.T) {
 	var tests = []struct {
 		input string
-		err   string
+		err   error
 	}{
-		{"-user =group", ""},
-		{"", "no input string given"},
-		{"- =group", "expected string after '-'"},
-		{"-user =", "expected string after '='"},
-		{"! -user =group", "expected string after '!'"},
-		{"-u1 -u2 -u3 !-u4 =g1", ""},
-		{"something", "unexpected string in acl input: 'something'"},
-		{"-*", "bad user '*'"},
-		{"=*", "bad group '*'"},
-		{"-_", "user contains invalid characters: '_'"},
-		{"=:", "group contains invalid characters: ':'"},
+		{"-user =group", nil},
+		{"", errors.New("no input string given")},
+		{"- =group", errors.New("expected string after '-'")},
+		{"-user =", errors.New("expected string after '='")},
+		{"! -user =group", errors.New("expected string after '!'")},
+		{"-u1 -u2 -u3 !-u4 =g1", nil},
+		{"something", errors.New("unexpected string in acl input: 'something'")},
+		{"-*", errors.New("bad user '*'")},
+		{"=*", errors.New("bad group '*'")},
+		{"-_", errors.New("user contains invalid characters: '_'")},
+		{"=:", errors.New("group contains invalid characters: ':'")},
 	}
 
 	for _, tt := range tests {
@@ -27,18 +48,7 @@ func TestNewFromString(t *testing.T) {
 			tt.input,
 			func(t *testing.T) {
 				_, err := NewFromString(tt.input)
-
-				if err != nil && len(tt.err) == 0 {
-					t.Fatalf("expected nil but got: '%s'", err)
-				}
-
-				if err != nil && tt.err != err.Error() {
-					t.Fatalf("expected '%s' but got: '%s'", tt.err, err)
-				}
-
-				if err == nil && len(tt.err) > 0 {
-					t.Fatalf("expected '%s' but got nil", err)
-				}
+				checkErr(t, err, tt.err)
 			},
 		)
 	}
