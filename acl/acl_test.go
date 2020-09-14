@@ -6,41 +6,55 @@ import (
 	"github.com/pkg/errors"
 )
 
-func checkErr(t *testing.T, got, expected error) {
-	if got != nil && expected != nil {
-		if got.Error() != expected.Error() {
-			t.Errorf("expected '%s' but got '%s'", expected, got)
-			return
-		}
-	}
-
-	if got == nil && expected != nil {
-		t.Errorf("expected '%s' but got nil", expected)
-		return
-	}
-
-	if got != nil && expected == nil {
-		t.Errorf("expected nil but got '%s'", got)
-		return
-	}
-}
-
 func TestNewFromString(t *testing.T) {
 	var tests = []struct {
 		input string
 		err   error
 	}{
-		{"-user =group", nil},
-		{"", errors.New("no input string given")},
-		{"- =group", errors.New("expected string after '-'")},
-		{"-user =", errors.New("expected string after '='")},
-		{"! -user =group", errors.New("expected string after '!'")},
-		{"-u1 -u2 -u3 !-u4 =g1", nil},
-		{"something", errors.New("unexpected string in acl input: 'something'")},
-		{"-*", errors.New("bad user '*'")},
-		{"=*", errors.New("bad group '*'")},
-		{"-_", errors.New("user contains invalid characters: '_'")},
-		{"=:", errors.New("group contains invalid characters: ':'")},
+		{
+			"-user =group",
+			nil,
+		},
+		{
+			"",
+			errors.New("no input string given"),
+		},
+		{
+			"- =group",
+			errors.New("expected string after '-'"),
+		},
+		{
+			"-user =",
+			errors.New("expected string after '='"),
+		},
+		{
+			"! -user =group",
+			errors.New("expected string after '!'"),
+		},
+		{
+			"-u1 -u2 -u3 !-u4 =g1",
+			nil,
+		},
+		{
+			"something",
+			errors.New("unexpected string in acl input: 'something'"),
+		},
+		{
+			"-*",
+			errors.New("bad user '*'"),
+		},
+		{
+			"=*",
+			errors.New("bad group '*'"),
+		},
+		{
+			"-_",
+			errors.New("user contains invalid characters: '_'"),
+		},
+		{
+			"=:",
+			errors.New("group contains invalid characters: ':'"),
+		},
 	}
 
 	for _, tt := range tests {
@@ -54,26 +68,6 @@ func TestNewFromString(t *testing.T) {
 	}
 }
 
-type TestUser struct {
-	name   string
-	groups []string
-}
-
-func (u TestUser) Name() string {
-	return u.name
-}
-
-func (u TestUser) Groups() []string {
-	return u.groups
-}
-
-func (u TestUser) PrimaryGroup() string {
-	if len(u.groups) > 0 {
-		return u.groups[0]
-	}
-	return "nobody"
-}
-
 func TestAllowed(t *testing.T) {
 	var tests = []struct {
 		input    string
@@ -82,37 +76,37 @@ func TestAllowed(t *testing.T) {
 	}{
 		{
 			"-testUser *",
-			TestUser{"testUser", nil},
+			newTestUser("testUser"),
 			true,
 		},
 		// check specifying user overrides blocking all
 		{
 			"-testUser !*",
-			TestUser{"testUser", nil},
+			newTestUser("testUser"),
 			true,
 		},
 		// check denying user overrides allowing all
 		{
 			"!-testUser *",
-			TestUser{"testUser", nil},
+			newTestUser("testUser"),
 			false,
 		},
 		// check denying user overrides allowing group
 		{
 			"!-testUser =testGroup",
-			TestUser{"testUser", []string{"testGroup"}},
+			newTestUser("testUser", "testGroup"),
 			false,
 		},
 		// check capitalisation doesnt matter
 		{
 			"-testUser !*",
-			TestUser{"testuser", nil},
+			newTestUser("testUser"),
 			true,
 		},
 		// check banned group
 		{
 			"!=testGroup *",
-			TestUser{"testuser", []string{"testGroup"}},
+			newTestUser("testUser", "testGroup"),
 			false,
 		},
 	}

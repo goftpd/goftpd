@@ -12,6 +12,7 @@ import (
 var AllowedUserAndGroupCharsRE = regexp.MustCompile(`[a-zA-Z0-9]`)
 
 var ErrPermissionDenied = errors.New("acl permission denied")
+var ErrBadInput = errors.New("bad input")
 
 // User is an interface used to check against an ACL
 type User interface {
@@ -60,7 +61,7 @@ type ACL struct {
 // The default is to block permission
 func NewFromString(s string) (*ACL, error) {
 	if len(s) == 0 {
-		return nil, errors.New("no input string given")
+		return nil, ErrBadInput
 	}
 
 	var a ACL

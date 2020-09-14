@@ -3,47 +3,15 @@ package acl
 import (
 	"fmt"
 	"testing"
+
+	"github.com/pkg/errors"
 )
-
-func compareACL(a, b *ACL) bool {
-	if !compareSlices(a.allowed.users, b.allowed.users) {
-		return false
-	}
-
-	if !compareSlices(a.allowed.groups, b.allowed.groups) {
-		return false
-	}
-
-	return true
-}
-
-func compareSlices(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for _, i := range a {
-		var match bool
-		for _, j := range b {
-			if i == j {
-				match = true
-				break
-			}
-		}
-
-		if !match {
-			return false
-		}
-	}
-
-	return true
-}
 
 func TestNewRule(t *testing.T) {
 	var tests = []struct {
 		input string
 		rule  Rule
-		err   string
+		err   error
 	}{
 		{
 			"download /path/test/dir -user !*",
@@ -55,7 +23,7 @@ func TestNewRule(t *testing.T) {
 					collection{true, nil, nil},
 				},
 			},
-			"",
+			nil,
 		},
 		{
 			"download /path/test/dir !-user *",
@@ -67,22 +35,22 @@ func TestNewRule(t *testing.T) {
 					collection{false, []string{"user"}, nil},
 				},
 			},
-			"",
+			nil,
 		},
 		{
 			"notexist /path/test/dir !-user *",
 			Rule{},
-			"unknown permission scope 'notexist'",
+			errors.New("unknown permission scope 'notexist'"),
 		},
 		{
 			"bad",
 			Rule{},
-			"rule requires minimum of 3 fields",
+			errors.New("rule requires minimum of 3 fields"),
 		},
 		{
 			"bad line",
 			Rule{},
-			"rule requires minimum of 3 fields",
+			errors.New("rule requires minimum of 3 fields"),
 		},
 		{
 			"download /path/test !-*",
@@ -91,7 +59,7 @@ func TestNewRule(t *testing.T) {
 				PermissionScopeDownload,
 				nil,
 			},
-			"bad user '*'",
+			errors.New("bad user '*'"),
 		},
 	}
 
@@ -100,17 +68,7 @@ func TestNewRule(t *testing.T) {
 			tt.input,
 			func(t *testing.T) {
 				rule, err := NewRule(tt.input)
-				if err != nil && len(tt.err) == 0 {
-					t.Fatalf("expected nil but got: '%s'", err)
-				}
-
-				if err != nil && tt.err != err.Error() {
-					t.Fatalf("expected '%s' but got: '%s'", tt.err, err)
-				}
-
-				if err == nil && len(tt.err) > 0 {
-					t.Fatalf("expected '%s' but got nil", tt.err)
-				}
+				checkErr(t, err, tt.err)
 
 				if tt.rule.path != rule.path {
 					t.Errorf("expected path to be '%s' but got '%s'", tt.rule.path, rule.path)
@@ -133,25 +91,25 @@ func TestNewRule(t *testing.T) {
 func TestNewPermissions(t *testing.T) {
 	var tests = []struct {
 		lines []string
-		err   string
+		err   error
 	}{
 		{
 			[]string{},
-			"",
+			nil,
 		},
 		{
 			[]string{
 				"download /dir/a *",
 				"download /dir/b !*",
 			},
-			"",
+			nil,
 		},
 		{
 			[]string{
 				"download /dir/a *",
 				"download /dir/a !*",
 			},
-			"path '/dir/a' for scope 'download' already exists",
+			errors.New("path '/dir/a' for scope 'download' already exists"),
 		},
 	}
 
@@ -159,6 +117,7 @@ func TestNewPermissions(t *testing.T) {
 		t.Run(
 			fmt.Sprintf("%d", idx),
 			func(t *testing.T) {
+
 				var rules []Rule
 				for _, l := range tt.lines {
 					r, err := NewRule(l)
@@ -167,18 +126,9 @@ func TestNewPermissions(t *testing.T) {
 					}
 					rules = append(rules, r)
 				}
+
 				_, err := NewPermissions(rules)
-				if err != nil && len(tt.err) == 0 {
-					t.Fatalf("expected nil but got: '%s'", err)
-				}
-
-				if err != nil && len(tt.err) > 0 && err.Error() != tt.err {
-					t.Fatalf("expected '%s' but got: '%s'", tt.err, err)
-				}
-
-				if err == nil && len(tt.err) > 0 {
-					t.Fatalf("expected '%s' but got nil", tt.err)
-				}
+				checkErr(t, err, tt.err)
 			},
 		)
 	}
@@ -196,49 +146,49 @@ func TestPermissionsCheck(t *testing.T) {
 			"download /dir/a *",
 			"/dir/a",
 			PermissionScopeDownload,
-			TestUser{"user", nil},
+			newTestUser("user"),
 			true,
 		},
 		{
 			"download /dir/a !*",
 			"/dir/a",
 			PermissionScopeDownload,
-			TestUser{"user", nil},
+			newTestUser("user"),
 			false,
 		},
 		{
 			"download /dir/a -user !*",
 			"/dir/a",
 			PermissionScopeDownload,
-			TestUser{"user", nil},
+			newTestUser("user"),
 			true,
 		},
 		{
 			"download /dir/a =group !*",
 			"/dir/a",
 			PermissionScopeDownload,
-			TestUser{"user", []string{"group"}},
+			newTestUser("user", "group"),
 			true,
 		},
 		{
 			"download / =group !*",
 			"/dir/a",
 			PermissionScopeDownload,
-			TestUser{"user", []string{"group"}},
+			newTestUser("user", "group"),
 			true,
 		},
 		{
 			"download / =group !*",
 			"/dir/a",
 			PermissionScopeUpload,
-			TestUser{"user", []string{"group"}},
+			newTestUser("user", "group"),
 			false,
 		},
 		{
 			"download /some/path =group !*",
 			"/dir/a",
 			PermissionScopeDownload,
-			TestUser{"user", []string{"group"}},
+			newTestUser("user", "group"),
 			false,
 		},
 	}
