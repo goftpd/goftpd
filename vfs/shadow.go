@@ -14,8 +14,9 @@ import (
 // Error thrown when the requested path does not exist
 var ErrNoPath = errors.New("path does not exist")
 
-// "constant" to the splitter used
-var shadowEntrySplitter = []byte(":")
+// "constants" to the splitter used
+var shadowEntrySplitter = ":"
+var shadowEntrySplitterBytes = []byte(shadowEntrySplitter)
 
 // Shadow represents a shadow filesystem where meta data is
 // stored
@@ -54,13 +55,30 @@ func (s *ShadowStore) Hash(path string) []byte {
 	return b
 }
 
+func (s *ShadowStore) createVal(user, group string) ([]byte, error) {
+	if strings.Contains(user, shadowEntrySplitter) {
+		return nil, errors.Errorf("user can't contain '%s'", shadowEntrySplitter)
+	}
+
+	if strings.Contains(group, shadowEntrySplitter) {
+		return nil, errors.Errorf("group can't contain '%s'", shadowEntrySplitter)
+	}
+
+	val := []byte(strings.ToLower(fmt.Sprintf("%s%s%s", user, shadowEntrySplitter, group)))
+
+	return val, nil
+}
+
 // Add a path with it's meta data to the store. Overwrites any
 // existing value.
-func (s *ShadowStore) Add(path, username, group string) error {
+func (s *ShadowStore) Add(path, user, group string) error {
 	key := s.Hash(path)
-	val := []byte(strings.ToLower(fmt.Sprintf("%s:%s", username, group)))
+	val, err := s.createVal(user, group)
+	if err != nil {
+		return err
+	}
 
-	err := s.store.Update(func(txn *badger.Txn) error {
+	err = s.store.Update(func(txn *badger.Txn) error {
 		if err := txn.Set(key, val); err != nil {
 			return err
 		}
@@ -75,7 +93,7 @@ func (s *ShadowStore) Add(path, username, group string) error {
 	return nil
 }
 
-// Get tries to retrieve the username and group for a path
+// Get tries to retrieve the user and group for a path
 func (s *ShadowStore) Get(path string) (string, string, error) {
 	key := s.Hash(path)
 
@@ -88,7 +106,7 @@ func (s *ShadowStore) Get(path string) (string, string, error) {
 		}
 
 		err = item.Value(func(val []byte) error {
-			parts := bytes.Split(val, shadowEntrySplitter)
+			parts := bytes.Split(val, shadowEntrySplitterBytes)
 			if len(parts) != 2 {
 				return errors.Errorf("expected 2 parts to key: '%x': '%s'", key, string(val))
 			}

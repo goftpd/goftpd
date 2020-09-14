@@ -119,3 +119,40 @@ func TestShadowStoreRemove(t *testing.T) {
 		return
 	}
 }
+
+func TestShadowStoreCreateVal(t *testing.T) {
+	var ss ShadowStore
+
+	val, err := ss.createVal("user", "group")
+	if err != nil {
+		t.Errorf("unexpected err: %s", err)
+		return
+	}
+
+	if string(val) != "user:group" {
+		t.Errorf("unexpected val: '%s'", string(val))
+		return
+	}
+
+	val, err = ss.createVal("user:", "group")
+	if err == nil {
+		t.Error("expected bad user createVal to error")
+		return
+	}
+
+	if err.Error() != "user can't contain ':'" {
+		t.Errorf("unexpected error for bad user createVal: %s", err)
+		return
+	}
+
+	val, err = ss.createVal("user", "group:")
+	if err == nil {
+		t.Error("expected bad group createVal to error")
+		return
+	}
+
+	if err.Error() != "group can't contain ':'" {
+		t.Errorf("unexpected error for bad group createVal: %s", err)
+		return
+	}
+}
