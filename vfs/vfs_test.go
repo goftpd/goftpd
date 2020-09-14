@@ -474,3 +474,96 @@ func TestRenameFile(t *testing.T) {
 		)
 	}
 }
+
+func TestDeleteFile(t *testing.T) {
+	var tests = []struct {
+		create bool
+		path   string
+		rules  []string
+		owner  TestUser
+		user   TestUser
+		err    error
+	}{
+		{
+			true,
+			"/file",
+			[]string{
+				"delete / *",
+			},
+			newTestUser("user"),
+			newTestUser("user"),
+			nil,
+		},
+		{
+			false,
+			"/file",
+			[]string{
+				"delete / *",
+			},
+			newTestUser("user"),
+			newTestUser("user"),
+			errors.New("file does not exist"),
+		},
+		{
+			true,
+			"/file",
+			[]string{
+				"delete / !*",
+			},
+			newTestUser("user"),
+			newTestUser("user"),
+			acl.ErrPermissionDenied,
+		},
+		{
+			true,
+			"/file",
+			[]string{
+				"delete / !*",
+				"deleteown / *",
+			},
+			newTestUser("owner"),
+			newTestUser("user"),
+			acl.ErrPermissionDenied,
+		},
+		{
+			true,
+			"/file",
+			[]string{
+				"delete / !*",
+				"deleteown / *",
+			},
+			newTestUser("owner"),
+			newTestUser("owner"),
+			nil,
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(
+			fmt.Sprintf("%d", idx),
+			func(t *testing.T) {
+				fs := newMemoryFilesystem(t, tt.rules)
+				if fs == nil {
+					t.Fatal("unexpected nil for fs")
+				}
+				defer stopMemoryFilesystem(t, fs)
+
+				// create base file to resume
+				if tt.create {
+					createFile(t, fs, tt.path, "DELETE FILE")
+					setShadowOwner(t, fs, tt.path, tt.owner)
+				}
+
+				err := fs.DeleteFile(tt.path, tt.user)
+				checkErr(t, err, tt.err)
+
+				if tt.err == nil {
+					// check that shadow doesnt have the old path
+					if _, _, err := fs.shadow.Get(tt.path); err != ErrNoPath {
+						t.Fatalf("expected Get to be ErrNoPath got: %s", err)
+					}
+				}
+			},
+		)
+	}
+}
