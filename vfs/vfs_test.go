@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"testing"
+	"time"
 
 	"github.com/goftpd/goftpd/acl"
 	"github.com/pkg/errors"
@@ -565,5 +566,79 @@ func TestDeleteFile(t *testing.T) {
 				}
 			},
 		)
+	}
+}
+
+func TestListDirSortByName(t *testing.T) {
+	owner := newTestUser("user", "group")
+	rules := []string{
+		"list / *",
+	}
+
+	// potential to create random fails, but lets see
+	now := time.Now()
+	expectedDetailed := fmt.Sprintf(
+		"-rw-rw-rw- 1 user group            9 %s f0\r\n-rw-rw-rw- 1 user group            9 %s f1\r\n-rw-rw-rw- 1 user group            9 %s f2\r\n-rw-rw-rw- 1 user group            9 %s f3\r\n-rw-rw-rw- 1 user group            9 %s f4\r\n-rw-rw-rw- 1 user group            9 %s f5\r\n-rw-rw-rw- 1 user group            9 %s f6\r\n-rw-rw-rw- 1 user group            9 %s f7\r\n-rw-rw-rw- 1 user group            9 %s f8\r\n-rw-rw-rw- 1 user group            9 %s f9\r\n",
+		now.Format("Jan _2 15:04"),
+		now.Format("Jan _2 15:04"),
+		now.Format("Jan _2 15:04"),
+		now.Format("Jan _2 15:04"),
+		now.Format("Jan _2 15:04"),
+		now.Format("Jan _2 15:04"),
+		now.Format("Jan _2 15:04"),
+		now.Format("Jan _2 15:04"),
+		now.Format("Jan _2 15:04"),
+		now.Format("Jan _2 15:04"),
+	)
+
+	fs := newMemoryFilesystem(t, rules)
+	if fs == nil {
+		t.Fatal("unexpected nil for fs")
+	}
+	defer stopMemoryFilesystem(t, fs)
+
+	for i := 0; i < 10; i++ {
+		path := fmt.Sprintf("/f%d", i)
+		createFile(t, fs, path, "LIST FILE")
+		setShadowOwner(t, fs, path, owner)
+	}
+
+	files, err := fs.ListDir("/", owner)
+	checkErr(t, err, nil)
+
+	if len(files) != 10 {
+		t.Errorf("expected 10 files found %d", len(files))
+	}
+
+	files.SortByName()
+
+	if string(files.Detailed()) != expectedDetailed {
+		t.Errorf("unexpected detailed:\n%s\nexpected:\n%s", string(files.Detailed()), expectedDetailed)
+	}
+
+}
+func TestListDirNoPermission(t *testing.T) {
+	owner := newTestUser("user", "group")
+	rules := []string{
+		"list / !*",
+	}
+
+	fs := newMemoryFilesystem(t, rules)
+	if fs == nil {
+		t.Fatal("unexpected nil for fs")
+	}
+	defer stopMemoryFilesystem(t, fs)
+
+	for i := 0; i < 10; i++ {
+		path := fmt.Sprintf("/f%d", i)
+		createFile(t, fs, path, "LIST FILE")
+		setShadowOwner(t, fs, path, owner)
+	}
+
+	files, err := fs.ListDir("/", owner)
+	checkErr(t, err, acl.ErrPermissionDenied)
+
+	if files != nil {
+		t.Fatal("expected files to be nil")
 	}
 }

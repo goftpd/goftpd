@@ -148,9 +148,6 @@ func (fs *Filesystem) ResumeUploadFile(path string, user acl.User) (io.WriteClos
 // RenameFile checks to see if the user has permission to rename the file (checking rename and
 // renameown scopes).
 func (fs *Filesystem) RenameFile(oldpath, newpath string, user acl.User) error {
-	// need a way to transform usernames to uid and groups to gid, shadowing the entire
-	// fs is not ideal
-
 	// make sure that the user has permission to upload to the new path
 	if !fs.permissions.Allowed(acl.PermissionScopeUpload, newpath, user) {
 		return acl.ErrPermissionDenied
@@ -195,9 +192,6 @@ func (fs *Filesystem) RenameFile(oldpath, newpath string, user acl.User) error {
 // DeleteFile checks to see if the user has permission to delete the file (checking delete and
 // deleteown scopes).
 func (fs *Filesystem) DeleteFile(path string, user acl.User) error {
-	// need a way to transform usernames to uid and groups to gid, shadowing the entire
-	// fs is not ideal
-
 	if !fs.permissions.Allowed(acl.PermissionScopeDelete, path, user) {
 
 		// not allowed to globally delete, check if this is ours and we can delete our own
@@ -224,6 +218,37 @@ func (fs *Filesystem) DeleteFile(path string, user acl.User) error {
 	}
 
 	return nil
+}
+
+// ListDir checks to see if the user has permission to list the dir and then does so.
+// Has optimisation potential by being provided a FileList
+func (fs *Filesystem) ListDir(path string, user acl.User) (FileList, error) {
+	if !fs.permissions.Allowed(acl.PermissionScopeList, path, user) {
+		return nil, acl.ErrPermissionDenied
+	}
+
+	files, err := fs.chroot.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var results FileList
+
+	for _, f := range files {
+		fullpath := filepath.Join(path, f.Name())
+		username, group, err := fs.shadow.Get(fullpath)
+		if err != nil {
+			return nil, errors.WithMessagef(err, "%s", fullpath)
+		}
+
+		results = append(results, FileInfo{
+			FileInfo: f,
+			Owner:    username,
+			Group:    group,
+		})
+	}
+
+	return results, nil
 }
 
 // checkOwnership checks to see if a user is an owner of a given path. Returns bool
