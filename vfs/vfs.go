@@ -13,6 +13,17 @@ import (
 
 var defaultPerms os.FileMode = 0666
 
+type VFS interface {
+	Stop() error
+	MakeDir(string, acl.User) error
+	DownloadFile(string, acl.User) (io.ReadCloser, error)
+	UploadFile(string, acl.User) (io.WriteCloser, error)
+	ResumeUploadFile(string, acl.User) (io.WriteCloser, error)
+	RenameFile(string, string, acl.User) error
+	DeleteFile(string, acl.User) error
+	ListDir(string, acl.User) (FileList, error)
+}
+
 type Filesystem struct {
 	chroot      billy.Filesystem
 	shadow      Shadow
@@ -31,6 +42,7 @@ func NewFilesystem(chroot billy.Filesystem, shadow Shadow, permissions *acl.Perm
 	return &fs, nil
 }
 
+// Stop closes any underlying resources
 func (fs *Filesystem) Stop() error {
 	if err := fs.shadow.Close(); err != nil {
 		return err

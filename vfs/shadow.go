@@ -38,7 +38,7 @@ type ShadowStore struct {
 
 // NewShadowStore creates a new ShadowStore with the given badger db. Caller
 // is responsible for opening the db to make it easier to test.
-func NewShadowStore(db *badger.DB) Shadow {
+func NewShadowStore(db *badger.DB) *ShadowStore {
 	s := ShadowStore{
 		store: db,
 	}

@@ -17,3 +17,9 @@ Sessionx.vim
 tags
 # Persistent undo
 [._]*.un~
+
+*.db
+
+*.pem
+
+cp.out
