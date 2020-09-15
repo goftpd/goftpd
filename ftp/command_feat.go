@@ -2,17 +2,21 @@ package ftp
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/goftpd/goftpd/vfs"
 )
 
-type commandFEAT struct{}
+type commandFEAT struct {
+	once  sync.Once
+	reply string
+}
 
-func (c commandFEAT) IsExtension() bool  { return false }
+func (c commandFEAT) Feat() string       { return "" }
 func (c commandFEAT) RequireParam() bool { return false }
 func (c commandFEAT) RequireAuth() bool  { return false }
 
-func (c commandFEAT) Do(s *Session, fs vfs.VFS, params []string) error {
+func (c *commandFEAT) Do(s *Session, fs vfs.VFS, params []string) error {
 	if len(params) > 0 {
 		if err := s.Reply(501, "Syntax error in parameters or arguments."); err != nil {
 			return err
@@ -20,32 +24,38 @@ func (c commandFEAT) Do(s *Session, fs vfs.VFS, params []string) error {
 		return nil
 	}
 
-	// this all wants moving to an init or cached
-	var count int
-	for k := range commandMap {
-		if commandMap[k].IsExtension() {
-			count++
+	// lets generate the Feat list on the first call
+	// and store it for subsequent calls. Also means
+	// no globals yay.
+	c.once.Do(func() {
+		var feats []string
+
+		for k := range commandMap {
+			f := commandMap[k].Feat()
+			if len(f) > 0 {
+				feats = append(feats, f)
+			}
 		}
-	}
 
-	if count == 0 {
-		s.Reply(211, "No Features.")
-		return nil
-	}
+		if len(feats) == 0 {
+			c.reply = "No Features."
+			return
+		}
 
-	b := strings.Builder{}
+		b := strings.Builder{}
 
-	b.WriteString("Extensions supported:\n")
+		b.WriteString("Extensions supported:\n")
 
-	for k := range commandMap {
-		if commandMap[k].IsExtension() {
+		for _, f := range feats {
 			b.WriteString(" ")
-			b.WriteString(k)
+			b.WriteString(f)
 			b.WriteString("\n")
 		}
-	}
 
-	s.Reply(211, b.String())
+		c.reply = b.String()
+	})
+
+	s.Reply(211, c.reply)
 	return nil
 }
 
