@@ -30,7 +30,10 @@ func (c commandALLO) IsExtension() bool  { return false }
 func (c commandALLO) RequireParam() bool { return false }
 func (c commandALLO) RequireAuth() bool  { return true }
 func (c commandALLO) Do(s *Session, fs vfs.VFS, params []string) error {
-	s.Reply(202, "No storage allocation necessary.")
+	if err := s.Reply(202, "No storage allocation necessary."); err != nil {
+		return err
+	}
+
 	return nil
 }
 

@@ -55,16 +55,34 @@ func (s *Session) Reply(code int, message string) error {
 
 	b := strings.Builder{}
 
-	for idx := range parts {
-		if idx < len(parts)-1 {
-			if _, err := b.WriteString(fmt.Sprintf("%d-%s\n", code, message)); err != nil {
-				return err
-			}
-		} else {
-			if _, err := b.WriteString(fmt.Sprintf("%d %s\r\n", code, message)); err != nil {
-				return err
-			}
+	if _, err := b.WriteString(fmt.Sprintf("%d", code)); err != nil {
+		return err
+	}
+
+	if len(parts) > 1 {
+		if _, err := b.WriteString("-"); err != nil {
+			return err
 		}
+	} else {
+		if _, err := b.WriteString(" "); err != nil {
+			return err
+		}
+	}
+
+	for _, p := range parts {
+		if _, err := b.WriteString(p + "\r\n"); err != nil {
+			return err
+		}
+	}
+
+	if len(parts) > 2 {
+		if _, err := b.WriteString(fmt.Sprintf("%d End.", code)); err != nil {
+			return err
+		}
+	}
+
+	if _, err := b.WriteString("\r\n"); err != nil {
+		return err
 	}
 
 	_, err := s.controlWriter.WriteString(b.String())
