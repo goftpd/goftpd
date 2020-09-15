@@ -60,7 +60,7 @@ func init() {
 			opts := ftp.ServerOpts{
 				Name:        "goftpd",
 				Port:        2121,
-				Host:        "127.0.0.1",
+				Host:        "::",
 				PublicIP:    "127.0.0.1",
 				TLSCertFile: "cert.pem",
 				TLSKeyFile:  "key.pem",

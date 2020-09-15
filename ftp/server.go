@@ -3,6 +3,7 @@ package ftp
 import (
 	"crypto/tls"
 	"errors"
+	"sync"
 
 	"github.com/goftpd/goftpd/vfs"
 )
@@ -28,6 +29,8 @@ type Server struct {
 	tlsConfig *tls.Config
 
 	fs vfs.VFS
+
+	sessionPool sync.Pool
 }
 
 // Create a new Server using the supplied ServerOpts and VFS. Will
@@ -75,6 +78,11 @@ func NewServer(opts ServerOpts, fs vfs.VFS) (*Server, error) {
 		ServerOpts: &opts,
 		tlsConfig:  tlsConfig,
 		fs:         fs,
+		sessionPool: sync.Pool{
+			New: func() interface{} {
+				return &Session{}
+			},
+		},
 	}
 
 	return &s, nil
