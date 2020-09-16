@@ -97,11 +97,7 @@ func (s *Session) getCommand(cmdStr string, params []string) (Command, error) {
 	}
 
 	if requiredState == SessionStateAuthenticated && s.state < SessionStateAuthenticated {
-		return nil, newFTPError(530, "AUTH incomplete.")
-	}
-
-	if requiredState == SessionStateUpgraded && s.state < SessionStateUpgraded {
-		return nil, newFTPError(530, "Please AUTH first.")
+		return nil, newFTPError(530, "AUTH first.")
 	}
 
 	return cmd, nil

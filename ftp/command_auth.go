@@ -84,7 +84,7 @@ func (c commandAUTH) Do(s *Session, fs vfs.VFS, params []string) error {
 		return err
 	}
 
-	s.state = SessionStateUpgraded
+	s.state = SessionStateAuthenticated
 
 	return nil
 }

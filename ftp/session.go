@@ -12,7 +12,6 @@ type SessionState int
 
 const (
 	SessionStateNull SessionState = iota
-	SessionStateUpgraded
 	SessionStateAuthenticated
 	SessionStateLoggedIn
 )
@@ -30,10 +29,12 @@ type Session struct {
 
 	state SessionState
 
+	// login state
+	username *string
+
 	// auth mechanism state
-	pbsz     *int
-	prot     *string
-	isAuthed bool
+	pbsz *int
+	prot *string
 
 	// abstract away?
 	currentDir string
@@ -49,7 +50,7 @@ func (s *Session) Reset() {
 	s.pbsz = nil
 	s.prot = nil
 	s.data = nil
-	s.isAuthed = false
+	s.username = nil
 	s.currentDir = "/"
 }
 

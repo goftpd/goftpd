@@ -41,7 +41,7 @@ type commandPBSZ struct{}
 
 func (c commandPBSZ) Feat() string               { return "PBSZ" }
 func (c commandPBSZ) RequireParam() bool         { return true }
-func (c commandPBSZ) RequireState() SessionState { return SessionStateUpgraded }
+func (c commandPBSZ) RequireState() SessionState { return SessionStateAuthenticated }
 
 func (c commandPBSZ) Do(s *Session, fs vfs.VFS, params []string) error {
 	if len(params) != 1 {

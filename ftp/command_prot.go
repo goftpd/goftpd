@@ -70,7 +70,7 @@ type commandPROT struct{}
 
 func (c commandPROT) Feat() string               { return "PROT" }
 func (c commandPROT) RequireParam() bool         { return true }
-func (c commandPROT) RequireState() SessionState { return SessionStateUpgraded }
+func (c commandPROT) RequireState() SessionState { return SessionStateAuthenticated }
 
 func (c commandPROT) Do(s *Session, fs vfs.VFS, params []string) error {
 	if len(params) != 1 {
