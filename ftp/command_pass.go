@@ -21,7 +21,12 @@ func (c commandPASS) Do(s *Session, fs vfs.VFS, params []string) error {
 		return nil
 	}
 
-	s.Reply(230, fmt.Sprintf("Welcome back %s!", s.username))
+	if s.username == nil {
+		s.Reply(503, "Bad sequence of commands.")
+		return nil
+	}
+
+	s.Reply(230, fmt.Sprintf("Welcome back %s!", *s.username))
 
 	s.state = SessionStateLoggedIn
 
