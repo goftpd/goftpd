@@ -2,9 +2,19 @@ package ftp
 
 import (
 	"bufio"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"strings"
+)
+
+type SessionState int
+
+const (
+	SessionStateNull SessionState = iota
+	SessionStateUpgraded
+	SessionStateAuthenticated
+	SessionStateLoggedIn
 )
 
 // Session represents an FTP client connection's control
@@ -14,8 +24,15 @@ type Session struct {
 	controlReader *bufio.Reader
 	controlWriter *bufio.Writer
 
+	tlsConfig *tls.Config
+
 	data net.Conn
 
+	state SessionState
+
+	// auth mechanism state
+	pbsz     *int
+	prot     *string
 	isAuthed bool
 
 	// abstract away?
@@ -27,6 +44,10 @@ func (s *Session) Reset() {
 	s.control = nil
 	s.controlReader = nil
 	s.controlWriter = nil
+	s.tlsConfig = nil
+	s.state = SessionStateNull
+	s.pbsz = nil
+	s.prot = nil
 	s.data = nil
 	s.isAuthed = false
 	s.currentDir = "/"
@@ -63,10 +84,10 @@ func (s *Session) Reply(code int, message string) error {
 		if _, err := b.WriteString("-"); err != nil {
 			return err
 		}
-	} else {
-		if _, err := b.WriteString(" "); err != nil {
-			return err
-		}
+	}
+
+	if _, err := b.WriteString(" "); err != nil {
+		return err
 	}
 
 	for _, p := range parts {
@@ -93,6 +114,20 @@ func (s *Session) Reply(code int, message string) error {
 	if err := s.controlWriter.Flush(); err != nil {
 		return err
 	}
+
+	return nil
+}
+
+// upgrade a sessions underlying connection to use TLS
+func (s *Session) upgrade() error {
+	tlsConn := tls.Server(s.control, s.tlsConfig)
+	if err := tlsConn.Handshake(); err != nil {
+		return err
+	}
+
+	s.control = tlsConn
+	s.controlReader = bufio.NewReader(tlsConn)
+	s.controlWriter = bufio.NewWriter(tlsConn)
 
 	return nil
 }

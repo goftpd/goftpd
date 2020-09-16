@@ -3,6 +3,7 @@ package ftp
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"os"
@@ -18,12 +19,12 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 	session.Reset()
 	defer s.sessionPool.Put(session)
 
-	session.serve(ctx, conn, s.fs)
+	session.serve(ctx, conn, s.fs, s.tlsConfig)
 }
 
 // serve takes a connection and fs and parses commands on the control channel
 // it traps any panics and attempts to close the session
-func (s *Session) serve(ctx context.Context, conn net.Conn, fs vfs.VFS) {
+func (s *Session) serve(ctx context.Context, conn net.Conn, fs vfs.VFS, tlsConfig *tls.Config) {
 	defer func() {
 		if e := recover(); e != nil {
 			fmt.Fprintf(os.Stderr, "SESSION PANIC: %v", e)
@@ -34,6 +35,7 @@ func (s *Session) serve(ctx context.Context, conn net.Conn, fs vfs.VFS) {
 	s.control = conn
 	s.controlReader = bufio.NewReader(conn)
 	s.controlWriter = bufio.NewWriter(conn)
+	s.tlsConfig = tlsConfig
 
 	s.Reply(220, "Welcome!")
 
@@ -76,7 +78,9 @@ func (s *Session) serve(ctx context.Context, conn net.Conn, fs vfs.VFS) {
 // returns Command and or
 func (s *Session) getCommand(cmdStr string, params []string) (Command, error) {
 
-	cmd, ok := commandMap[strings.ToUpper(cmdStr)]
+	cmdStr = strings.ToUpper(cmdStr)
+
+	cmd, ok := commandMap[cmdStr]
 
 	if !ok {
 		return nil, newFTPError(502, "Command not implemented.")
@@ -86,8 +90,18 @@ func (s *Session) getCommand(cmdStr string, params []string) (Command, error) {
 		return nil, newFTPError(501, "Syntax error in parameters or arguments.")
 	}
 
-	if cmd.RequireAuth() && !s.isAuthed {
-		return nil, newFTPError(530, "Not logged in.")
+	requiredState := cmd.RequireState()
+
+	if requiredState == SessionStateLoggedIn && s.state < SessionStateLoggedIn {
+		return nil, newFTPError(530, "Login first.")
+	}
+
+	if requiredState == SessionStateAuthenticated && s.state < SessionStateAuthenticated {
+		return nil, newFTPError(530, "AUTH incomplete.")
+	}
+
+	if requiredState == SessionStateUpgraded && s.state < SessionStateUpgraded {
+		return nil, newFTPError(530, "Please AUTH first.")
 	}
 
 	return cmd, nil

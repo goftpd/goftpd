@@ -12,9 +12,9 @@ type commandFEAT struct {
 	reply string
 }
 
-func (c commandFEAT) Feat() string       { return "" }
-func (c commandFEAT) RequireParam() bool { return false }
-func (c commandFEAT) RequireAuth() bool  { return false }
+func (c commandFEAT) Feat() string               { return "" }
+func (c commandFEAT) RequireParam() bool         { return false }
+func (c commandFEAT) RequireState() SessionState { return SessionStateNull }
 
 func (c *commandFEAT) Do(s *Session, fs vfs.VFS, params []string) error {
 	if len(params) > 0 {
