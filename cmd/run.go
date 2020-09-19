@@ -61,7 +61,7 @@ func init() {
 				Name:        "goftpd",
 				Port:        2121,
 				Host:        "::",
-				PublicIP:    "172.20.5.192",
+				PublicIP:    "127.0.0.1",
 				TLSCertFile: "cert.pem",
 				TLSKeyFile:  "key.pem",
 			}

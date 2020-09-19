@@ -250,7 +250,8 @@ func (fs *Filesystem) ListDir(path string, user acl.User) (FileList, error) {
 		fullpath := filepath.Join(path, f.Name())
 		username, group, err := fs.shadow.Get(fullpath)
 		if err != nil {
-			return nil, errors.WithMessagef(err, "%s", fullpath)
+			username = "root"
+			group = "root"
 		}
 
 		results = append(results, FileInfo{

@@ -1,6 +1,8 @@
 package ftp
 
-import "github.com/goftpd/goftpd/vfs"
+import (
+	"context"
+)
 
 /*
 	         ALLOCATE (ALLO)
@@ -26,12 +28,10 @@ import "github.com/goftpd/goftpd/vfs"
 
 type commandALLO struct{}
 
-func (c commandALLO) Feat() string               { return "" }
-func (c commandALLO) RequireParam() bool         { return false }
 func (c commandALLO) RequireState() SessionState { return SessionStateLoggedIn }
 
-func (c commandALLO) Do(s *Session, fs vfs.VFS, params []string) error {
-	if err := s.Reply(202, "No storage allocation necessary."); err != nil {
+func (c commandALLO) Execute(ctx context.Context, s *Session, params []string) error {
+	if err := s.ReplyWithMessage(StatusSuperfluous, "No storage allocation necessary."); err != nil {
 		return err
 	}
 

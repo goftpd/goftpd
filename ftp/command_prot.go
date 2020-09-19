@@ -1,11 +1,9 @@
 package ftp
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"strings"
-
-	"github.com/goftpd/goftpd/vfs"
 )
 
 /*
@@ -68,43 +66,30 @@ import (
 
 type commandPROT struct{}
 
-func (c commandPROT) Feat() string               { return "PROT" }
-func (c commandPROT) RequireParam() bool         { return true }
-func (c commandPROT) RequireState() SessionState { return SessionStateAuthenticated }
+func (c commandPROT) RequireState() SessionState { return SessionStateAuth }
 
-func (c commandPROT) Do(s *Session, fs vfs.VFS, params []string) error {
+func (c commandPROT) Execute(ctx context.Context, s *Session, params []string) error {
 	if len(params) != 1 {
-		s.Reply(501, "Syntax error in parameters or arguments.")
-		return nil
-	}
-
-	if s.tlsConfig == nil {
-		return errors.New("TLS Config is nil")
-	}
-
-	if s.pbsz == nil {
-		s.Reply(503, "Send PBSZ first.")
-		return nil
+		return s.ReplyStatus(StatusSyntaxError)
 	}
 
 	switch strings.ToUpper(params[0]) {
 	case "P":
-		s.prot = &params[0]
+		s.dataProtected = true
 
 	case "C":
+		s.dataProtected = false
+
 	case "S":
+		fallthrough
 	case "E":
-		s.Reply(534, "Only Protection Level P is supported. Please use secure data transfer.")
-		return nil
+		return s.ReplyWithArgs(StatusBadProtectionLevel, params[0])
 
 	default:
-		s.Reply(504, "Unknown Protection Level.")
-		return nil
+		return s.ReplyStatus(StatusParameterNotImplemented)
 	}
 
-	s.Reply(200, fmt.Sprintf("Protection Level '%s' accepted.", params[0]))
-
-	s.state = SessionStateAuthenticated
+	s.ReplyWithMessage(StatusOK, fmt.Sprintf("Protection Level '%s' accepted.", params[0]))
 
 	return nil
 }

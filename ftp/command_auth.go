@@ -1,11 +1,9 @@
 package ftp
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"strings"
-
-	"github.com/goftpd/goftpd/vfs"
 )
 
 /*
@@ -54,41 +52,32 @@ import (
 
 type commandAUTH struct{}
 
-func (c commandAUTH) Feat() string               { return "AUTH TLS" }
-func (c commandAUTH) RequireParam() bool         { return true }
 func (c commandAUTH) RequireState() SessionState { return SessionStateNull }
 
-func (c commandAUTH) Do(s *Session, fs vfs.VFS, params []string) error {
+func (c commandAUTH) Execute(ctx context.Context, s *Session, params []string) error {
 	if len(params) != 1 {
-		s.Reply(501, "Syntax error in parameters or arguments.")
-		return nil
+		return s.ReplyStatus(StatusSyntaxError)
 	}
 
 	if strings.ToUpper(params[0]) != "TLS" {
-		s.Reply(504, fmt.Sprintf("security mechanism '%s' not supported", params[0]))
-		return nil
+		return s.ReplyWithMessage(
+			StatusParameterNotImplemented,
+			fmt.Sprintf("Security Mechanism '%s' not supported", params[0]),
+		)
 	}
 
-	if s.tlsConfig == nil {
-		return errors.New("TLS Config is nil")
-	}
-
-	if s.state != SessionStateNull {
-		s.Reply(431, "Re negotiating isn't currently supported.")
-		return nil
-	}
-
-	s.Reply(234, "AUTH Command OK.")
+	s.ReplyStatus(StatusSecurityExchangeOK)
 
 	if err := s.upgrade(); err != nil {
-		return err
+		return CommandFatalError{err}
 	}
 
-	s.state = SessionStateAuthenticated
+	s.state = SessionStateAuth
 
 	return nil
 }
 
 func init() {
 	commandMap["AUTH"] = &commandAUTH{}
+	featSlice = append(featSlice, "AUTH TLS")
 }

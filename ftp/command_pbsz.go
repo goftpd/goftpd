@@ -1,10 +1,8 @@
 package ftp
 
 import (
-	"errors"
+	"context"
 	"strconv"
-
-	"github.com/goftpd/goftpd/vfs"
 )
 
 /*
@@ -39,31 +37,23 @@ import (
 
 type commandPBSZ struct{}
 
-func (c commandPBSZ) Feat() string               { return "PBSZ" }
-func (c commandPBSZ) RequireParam() bool         { return true }
-func (c commandPBSZ) RequireState() SessionState { return SessionStateAuthenticated }
+func (c commandPBSZ) RequireState() SessionState { return SessionStateAuth }
 
-func (c commandPBSZ) Do(s *Session, fs vfs.VFS, params []string) error {
+func (c commandPBSZ) Execute(ctx context.Context, s *Session, params []string) error {
 	if len(params) != 1 {
-		s.Reply(501, "Syntax error in parameters or arguments.")
-		return nil
-	}
-
-	if s.tlsConfig == nil {
-		return errors.New("TLS Config is nil")
+		return s.ReplyStatus(StatusSyntaxError)
 	}
 
 	size, err := strconv.Atoi(params[0])
 	if err != nil {
-		s.Reply(501, "Syntax error in parameters or arguments.")
-		return nil
+		return s.ReplyStatus(StatusSyntaxError)
 	}
 
-	// cant find any reference to what buffer this is
+	if size != 0 {
+		return s.ReplyWithMessage(StatusSyntaxError, "PBSZ=0")
+	}
 
-	s.Reply(200, "OK.")
-
-	s.pbsz = &size
+	s.ReplyStatus(StatusOK)
 
 	return nil
 }
