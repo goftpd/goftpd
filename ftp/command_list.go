@@ -3,7 +3,6 @@ package ftp
 import (
 	"context"
 	"fmt"
-	"log"
 )
 
 /*
@@ -55,17 +54,31 @@ func (c commandLIST) Execute(ctx context.Context, s *Session, params []string) e
 		return s.ReplyStatus(StatusNotLoggedIn)
 	}
 
-	finfo, err := s.server.fs.ListDir(params[0], user)
+	var options, path string
+
+	// check if we have options and set the path eitherway
+	if len(params[0]) > 0 && params[0][0] == '-' {
+		options = params[0]
+		params[0] = ""
+	}
+
+	path = s.server.fs.Join(s.currentDir, params)
+
+	// get file list and parse with any options
+	finfo, err := s.server.fs.ListDir(path, user)
 	if err != nil {
-		log.Printf("ERROR ListDir: %s: %s", params[0], err)
-		return s.ReplyStatus(StatusActionAbortedError)
+		return s.ReplyError(StatusActionAbortedError, err)
+	}
+
+	if len(options) > 0 {
+		// handle options
+		finfo.SortByName()
 	}
 
 	// write it
 	n, err := s.data.Write(finfo.Detailed())
 	if err != nil {
-		log.Printf("ERROR Write: %s", err)
-		return s.ReplyStatus(StatusActionAbortedError)
+		return s.ReplyError(StatusActionAbortedError, err)
 	}
 
 	s.ReplyWithMessage(StatusDataClosedOK, fmt.Sprintf("Closing data connection, sent %d bytes", n))

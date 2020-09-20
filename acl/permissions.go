@@ -72,9 +72,9 @@ func NewPermissions(rules []Rule) (*Permissions, error) {
 	return &p, nil
 }
 
-// Allowed takes a scope a path and a User and checks to see if they are allowed or blocked based on the
+// Allowed takes a scope a path and a *User and checks to see if they are allowed or blocked based on the
 // underlying ACL. Returns bool if they are allowed. Defaults to not allowing.
-func (p *Permissions) Allowed(scope PermissionScope, path string, user User) bool {
+func (p *Permissions) Allowed(scope PermissionScope, path string, user *User) bool {
 	s, ok := p.current[scope]
 	if !ok {
 		// potential to return an error here

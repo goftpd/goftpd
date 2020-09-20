@@ -46,16 +46,14 @@ func (c commandPBSZ) Execute(ctx context.Context, s *Session, params []string) e
 
 	size, err := strconv.Atoi(params[0])
 	if err != nil {
-		return s.ReplyStatus(StatusSyntaxError)
+		return s.ReplyError(StatusSyntaxError, err)
 	}
 
 	if size != 0 {
 		return s.ReplyWithMessage(StatusSyntaxError, "PBSZ=0")
 	}
 
-	s.ReplyStatus(StatusOK)
-
-	return nil
+	return s.ReplyStatus(StatusOK)
 }
 
 func init() {

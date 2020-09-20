@@ -2,7 +2,6 @@ package ftp
 
 import (
 	"context"
-	"log"
 )
 
 /*
@@ -24,16 +23,14 @@ func (c commandPASV) Execute(ctx context.Context, s *Session, params []string) e
 	// check if we have an existing data conncetion, if so cancel it
 	if s.data != nil {
 		if err := s.data.Close(); err != nil {
-			log.Printf("data.Close: %s", err)
-			return s.ReplyStatus(StatusCantOpenDataConnection)
+			return s.ReplyError(StatusCantOpenDataConnection, err)
 		}
 	}
 
 	// create new passive data connection
 	data, err := s.server.newPassiveDataConn(ctx, s.dataProtected)
 	if err != nil {
-		log.Printf("newPassiveDataConn: %s", err)
-		return s.ReplyStatus(StatusCantOpenDataConnection)
+		return s.ReplyError(StatusCantOpenDataConnection, err)
 	}
 
 	s.data = data

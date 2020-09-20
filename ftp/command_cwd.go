@@ -3,8 +3,6 @@ package ftp
 import (
 	"context"
 	"fmt"
-	"path"
-	"strings"
 )
 
 /*
@@ -23,13 +21,8 @@ type commandCWD struct{}
 func (c commandCWD) RequireState() SessionState { return SessionStateLoggedIn }
 
 func (c commandCWD) Execute(ctx context.Context, s *Session, params []string) error {
-	if len(params) != 1 {
+	if len(params) == 0 {
 		return s.ReplyStatus(StatusSyntaxError)
-	}
-
-	// clean?
-	if !strings.HasPrefix(params[0], "/") {
-		params[0] = path.Join(s.currentDir, params[0])
 	}
 
 	user, ok := s.User()
@@ -37,15 +30,17 @@ func (c commandCWD) Execute(ctx context.Context, s *Session, params []string) er
 		return s.ReplyStatus(StatusNotLoggedIn)
 	}
 
+	path := s.server.fs.Join(s.currentDir, params)
+
 	// acl checks
-	_, err := s.server.fs.ListDir(params[0], user)
+	_, err := s.server.fs.ListDir(path, user)
 	if err != nil {
-		return s.ReplyStatus(StatusActionNotOK)
+		return s.ReplyError(StatusActionNotOK, err)
 	}
 
-	s.currentDir = params[0]
+	s.currentDir = path
 
-	return s.ReplyWithMessage(StatusFileActionOK, fmt.Sprintf(`Current Working Dir "%s"`, params[0]))
+	return s.ReplyWithMessage(StatusFileActionOK, fmt.Sprintf(`Current Working Dir "%s"`, path))
 }
 
 func init() {

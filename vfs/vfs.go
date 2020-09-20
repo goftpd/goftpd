@@ -14,14 +14,15 @@ import (
 var defaultPerms os.FileMode = 0666
 
 type VFS interface {
+	Join(string, []string) string
 	Stop() error
-	MakeDir(string, acl.User) error
-	DownloadFile(string, acl.User) (io.ReadCloser, error)
-	UploadFile(string, acl.User) (io.WriteCloser, error)
-	ResumeUploadFile(string, acl.User) (io.WriteCloser, error)
-	RenameFile(string, string, acl.User) error
-	DeleteFile(string, acl.User) error
-	ListDir(string, acl.User) (FileList, error)
+	MakeDir(string, *acl.User) error
+	DownloadFile(string, *acl.User) (io.ReadCloser, error)
+	UploadFile(string, *acl.User) (io.WriteCloser, error)
+	ResumeUploadFile(string, *acl.User) (io.WriteCloser, error)
+	RenameFile(string, string, *acl.User) error
+	DeleteFile(string, *acl.User) error
+	ListDir(string, *acl.User) (FileList, error)
 }
 
 type Filesystem struct {
@@ -42,6 +43,17 @@ func NewFilesystem(chroot billy.Filesystem, shadow Shadow, permissions *acl.Perm
 	return &fs, nil
 }
 
+// Join tries to give back a safe path
+func (fs Filesystem) Join(current string, params []string) string {
+	path := strings.Join(params, " ")
+
+	if !strings.HasPrefix(path, "/") {
+		path = filepath.Join(current, path)
+	}
+
+	return path
+}
+
 // Stop closes any underlying resources
 func (fs *Filesystem) Stop() error {
 	if err := fs.shadow.Close(); err != nil {
@@ -51,7 +63,7 @@ func (fs *Filesystem) Stop() error {
 }
 
 // MakeDir checks to see if the user has permission to create a new directory. Does so if allowed
-func (fs *Filesystem) MakeDir(path string, user acl.User) error {
+func (fs *Filesystem) MakeDir(path string, user *acl.User) error {
 	if !fs.permissions.Allowed(acl.PermissionScopeMakeDir, path, user) {
 		return acl.ErrPermissionDenied
 	}
@@ -82,7 +94,7 @@ func (fs *Filesystem) MakeDir(path string, user acl.User) error {
 
 // DownloadFile checks to see if the user has permission to read the file (checking download
 // permissions from high level to low level). Returns an io.ReadCloser if allowed
-func (fs *Filesystem) DownloadFile(path string, user acl.User) (io.ReadCloser, error) {
+func (fs *Filesystem) DownloadFile(path string, user *acl.User) (io.ReadCloser, error) {
 	if !fs.permissions.Allowed(acl.PermissionScopeDownload, path, user) {
 		return nil, acl.ErrPermissionDenied
 	}
@@ -98,7 +110,7 @@ func (fs *Filesystem) DownloadFile(path string, user acl.User) (io.ReadCloser, e
 // UploadFile checks to see if the user has permission to write the file (checking upload
 // permissions from high level to low level). Returns an io.Writer if allowed. Does not
 // truncate a file
-func (fs *Filesystem) UploadFile(path string, user acl.User) (io.WriteCloser, error) {
+func (fs *Filesystem) UploadFile(path string, user *acl.User) (io.WriteCloser, error) {
 	if !fs.permissions.Allowed(acl.PermissionScopeUpload, path, user) {
 		return nil, acl.ErrPermissionDenied
 	}
@@ -119,7 +131,7 @@ func (fs *Filesystem) UploadFile(path string, user acl.User) (io.WriteCloser, er
 // ResumeUploadFile checks to see if the user has permission to write the file (checking upload
 // permissions from high level to low level). It also checks to see if they have resume writes.
 // Returns an io.Writer if allowed.
-func (fs *Filesystem) ResumeUploadFile(path string, user acl.User) (io.WriteCloser, error) {
+func (fs *Filesystem) ResumeUploadFile(path string, user *acl.User) (io.WriteCloser, error) {
 	if !fs.permissions.Allowed(acl.PermissionScopeUpload, path, user) {
 		return nil, acl.ErrPermissionDenied
 	}
@@ -159,7 +171,7 @@ func (fs *Filesystem) ResumeUploadFile(path string, user acl.User) (io.WriteClos
 
 // RenameFile checks to see if the user has permission to rename the file (checking rename and
 // renameown scopes).
-func (fs *Filesystem) RenameFile(oldpath, newpath string, user acl.User) error {
+func (fs *Filesystem) RenameFile(oldpath, newpath string, user *acl.User) error {
 	// make sure that the user has permission to upload to the new path
 	if !fs.permissions.Allowed(acl.PermissionScopeUpload, newpath, user) {
 		return acl.ErrPermissionDenied
@@ -203,7 +215,7 @@ func (fs *Filesystem) RenameFile(oldpath, newpath string, user acl.User) error {
 
 // DeleteFile checks to see if the user has permission to delete the file (checking delete and
 // deleteown scopes).
-func (fs *Filesystem) DeleteFile(path string, user acl.User) error {
+func (fs *Filesystem) DeleteFile(path string, user *acl.User) error {
 	if !fs.permissions.Allowed(acl.PermissionScopeDelete, path, user) {
 
 		// not allowed to globally delete, check if this is ours and we can delete our own
@@ -234,7 +246,7 @@ func (fs *Filesystem) DeleteFile(path string, user acl.User) error {
 
 // ListDir checks to see if the user has permission to list the dir and then does so.
 // Has optimisation potential by being provided a FileList
-func (fs *Filesystem) ListDir(path string, user acl.User) (FileList, error) {
+func (fs *Filesystem) ListDir(path string, user *acl.User) (FileList, error) {
 	if !fs.permissions.Allowed(acl.PermissionScopeList, path, user) {
 		return nil, acl.ErrPermissionDenied
 	}
@@ -266,7 +278,7 @@ func (fs *Filesystem) ListDir(path string, user acl.User) (FileList, error) {
 
 // checkOwnership checks to see if a user is an owner of a given path. Returns bool
 // and an error
-func (fs *Filesystem) checkOwnership(path string, user acl.User) (bool, error) {
+func (fs *Filesystem) checkOwnership(path string, user *acl.User) (bool, error) {
 	username, _, err := fs.shadow.Get(path)
 	if err != nil {
 		return false, err

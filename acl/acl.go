@@ -14,13 +14,6 @@ var AllowedUserAndGroupCharsRE = regexp.MustCompile(`[a-zA-Z0-9]`)
 var ErrPermissionDenied = errors.New("acl permission denied")
 var ErrBadInput = errors.New("bad input")
 
-// User is an interface used to check against an ACL
-type User interface {
-	Name() string
-	PrimaryGroup() string
-	Groups() []string
-}
-
 // collection is a container for the three different permission types,
 // users and group. Provides utilities for checking if the collection
 // contains a provided entity
@@ -156,7 +149,7 @@ func (c *collection) hasGroup(g string) bool {
 
 // UserAllowed checks to see if given User is allowed or blocked. Default is to
 // block access
-func (a *ACL) Allowed(u User) bool {
+func (a *ACL) Allowed(u *User) bool {
 	// check blocked lists
 	if a.blocked.hasUser(u.Name()) {
 		return false

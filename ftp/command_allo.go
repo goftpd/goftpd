@@ -31,11 +31,7 @@ type commandALLO struct{}
 func (c commandALLO) RequireState() SessionState { return SessionStateLoggedIn }
 
 func (c commandALLO) Execute(ctx context.Context, s *Session, params []string) error {
-	if err := s.ReplyWithMessage(StatusSuperfluous, "No storage allocation necessary."); err != nil {
-		return err
-	}
-
-	return nil
+	return s.ReplyWithMessage(StatusSuperfluous, "No storage allocation necessary.")
 }
 
 func init() {

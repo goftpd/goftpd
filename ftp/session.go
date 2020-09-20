@@ -46,23 +46,10 @@ type Session struct {
 // State shows the current state of the session
 func (s *Session) State() SessionState { return s.state }
 
-type User struct {
-	name   string
-	groups []string
-}
-
-func (u User) Name() string { return u.name }
-func (u User) PrimaryGroup() string {
-	if len(u.groups) == 0 {
-		return "nobody"
-	}
-	return u.groups[0]
-}
-func (u User) Groups() []string { return u.groups }
-
-func (s *Session) User() (acl.User, bool) {
+func (s *Session) User() (*acl.User, bool) {
 	if len(s.loginUser) > 0 {
-		return User{s.loginUser, []string{s.loginUser}}, true
+		user := acl.NewUser(s.loginUser, []string{s.loginUser})
+		return &user, true
 	}
 	return nil, false
 }
@@ -108,6 +95,12 @@ func (s *Session) ReplyStatus(st Status) error {
 // but takes args
 func (s *Session) ReplyWithArgs(st Status, args ...interface{}) error {
 	return s.reply(st.Code, fmt.Sprintf(st.Message, args...))
+}
+
+// ReplyError replies with the default message for a status code
+// but takes args
+func (s *Session) ReplyError(st Status, err error) error {
+	return s.reply(st.Code, fmt.Sprintf("%s: %s", st.Message, err.Error()))
 }
 
 // ReplyWithMessage replies with custom message
