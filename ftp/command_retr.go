@@ -55,6 +55,18 @@ func (c commandRETR) Execute(ctx context.Context, s *Session, params []string) e
 		return s.ReplyError(StatusActionNotOK, err)
 	}
 
+	// reset seek
+	defer func() {
+		s.restartPosition = 0
+	}()
+
+	// seek reader
+	if s.restartPosition > 0 {
+		if _, err := reader.Seek(int64(s.restartPosition), io.SeekStart); err != nil {
+			return s.ReplyError(StatusActionNotOK, err)
+		}
+	}
+
 	n, err := io.Copy(s.data, reader)
 	if err != nil {
 		return s.ReplyError(StatusActionNotOK, err)

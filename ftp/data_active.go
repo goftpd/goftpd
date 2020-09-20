@@ -16,6 +16,9 @@ type activeDataConn struct {
 
 	host string
 	port int64
+
+	written int
+	read    int
 }
 
 func (s *Server) newActiveDataConn(ctx context.Context, param string, dataProtected bool) (*activeDataConn, error) {
@@ -71,20 +74,26 @@ func (d *activeDataConn) Close() error {
 }
 
 // Read implements the io.Reader interface and makes it context ware
-func (d *activeDataConn) Read(p []byte) (n int, err error) {
+func (d *activeDataConn) Read(p []byte) (int, error) {
 	if err := d.ctx.Err(); err != nil {
 		return 0, err
 	}
-	return d.conn.Read(p)
+	n, err := d.conn.Read(p)
+	d.read += n
+	return n, err
 }
 
 // Write implements the io.Writer interface and makes it context ware
-func (d *activeDataConn) Write(p []byte) (n int, err error) {
+func (d *activeDataConn) Write(p []byte) (int, error) {
 	if err := d.ctx.Err(); err != nil {
 		return 0, err
 	}
-	return d.conn.Write(p)
+	n, err := d.conn.Write(p)
+	d.written += n
+	return n, err
 }
 
-func (d *activeDataConn) Host() string { return d.host }
-func (d *activeDataConn) Port() int    { return int(d.port) }
+func (d *activeDataConn) Host() string      { return d.host }
+func (d *activeDataConn) Port() int         { return int(d.port) }
+func (d *activeDataConn) BytesRead() int    { return d.read }
+func (d *activeDataConn) BytesWritten() int { return d.written }

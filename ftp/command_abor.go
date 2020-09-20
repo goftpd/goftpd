@@ -2,8 +2,6 @@ package ftp
 
 import (
 	"context"
-	"fmt"
-	"strings"
 )
 
 /*
@@ -43,25 +41,19 @@ func (c commandABOR) Execute(ctx context.Context, s *Session, params []string) e
 
 	// check if we have an existing data conncetion, if so cancel it
 	if s.data != nil {
-		// we might want a flag on the data connection to mark it as complete/incomplete so
-		// we can correctly reply with the 426
-
 		if err := s.data.Close(); err != nil {
 			return s.ReplyError(StatusCantOpenDataConnection, err)
 		}
+
+		if err := s.ReplyStatus(StatusDataCloseAborted); err != nil {
+			return err
+		}
+
 		// TODO: might be a race condition here
 		s.data = nil
 	}
 
 	return s.ReplyStatus(StatusDataClosedOK)
-}
-
-func (c commandABOR) toString(d Data) string {
-	p1 := d.Port() / 256
-	p2 := d.Port() - (p1 * 256)
-
-	parts := strings.Split(d.Host(), ".")
-	return fmt.Sprintf("(%s,%s,%s,%s,%d,%d)", parts[0], parts[1], parts[2], parts[3], p1, p2)
 }
 
 func init() {

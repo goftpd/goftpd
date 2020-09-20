@@ -38,6 +38,7 @@ func init() {
 				"list / *",
 				"delete / *",
 				"rename / *",
+				"resume / *",
 			}
 
 			var rules []acl.Rule

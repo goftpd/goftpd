@@ -13,11 +13,17 @@ import (
 
 var defaultPerms os.FileMode = 0666
 
+type ReadSeekCloser interface {
+	io.Reader
+	io.Seeker
+	io.Closer
+}
+
 type VFS interface {
 	Join(string, []string) string
 	Stop() error
 	MakeDir(string, *acl.User) error
-	DownloadFile(string, *acl.User) (io.ReadCloser, error)
+	DownloadFile(string, *acl.User) (ReadSeekCloser, error)
 	UploadFile(string, *acl.User) (io.WriteCloser, error)
 	ResumeUploadFile(string, *acl.User) (io.WriteCloser, error)
 	RenameFile(string, string, *acl.User) error
@@ -95,7 +101,7 @@ func (fs *Filesystem) MakeDir(path string, user *acl.User) error {
 
 // DownloadFile checks to see if the user has permission to read the file (checking download
 // permissions from high level to low level). Returns an io.ReadCloser if allowed
-func (fs *Filesystem) DownloadFile(path string, user *acl.User) (io.ReadCloser, error) {
+func (fs *Filesystem) DownloadFile(path string, user *acl.User) (ReadSeekCloser, error) {
 	if !fs.permissions.Allowed(acl.PermissionScopeDownload, path, user) {
 		return nil, acl.ErrPermissionDenied
 	}

@@ -47,4 +47,5 @@ func (c *commandFEAT) Execute(ctx context.Context, s *Session, params []string) 
 
 func init() {
 	commandMap["FEAT"] = &commandFEAT{}
+	featSlice = append(featSlice, "UTF8")
 }

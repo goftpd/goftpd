@@ -32,11 +32,12 @@ type Session struct {
 	data    Data
 
 	// state
-	state         SessionState
-	dataProtected bool
-	binaryMode    bool
-	lastCommand   string
-	renameFrom    []string
+	state           SessionState
+	dataProtected   bool
+	binaryMode      bool
+	lastCommand     string
+	renameFrom      []string
+	restartPosition int
 
 	// authentication
 	loginUser string
@@ -68,6 +69,7 @@ func (s *Session) Reset() {
 	s.binaryMode = false
 	s.lastCommand = ""
 	s.renameFrom = []string{}
+	s.restartPosition = 0
 
 	s.loginUser = ""
 

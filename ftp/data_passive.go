@@ -24,6 +24,9 @@ type passiveDataConn struct {
 
 	onClose func()
 
+	written int
+	read    int
+
 	err error
 
 	sync.Mutex
@@ -141,7 +144,7 @@ func (d *passiveDataConn) Accept(ctx context.Context, ln net.Listener) {
 
 // Read implements the io.Reader interface as well as providing us
 // with an early return for any accept errors
-func (d *passiveDataConn) Read(p []byte) (n int, err error) {
+func (d *passiveDataConn) Read(p []byte) (int, error) {
 	if err := d.ctx.Err(); err != nil {
 		return 0, err
 	}
@@ -153,12 +156,14 @@ func (d *passiveDataConn) Read(p []byte) (n int, err error) {
 		return 0, d.err
 	}
 
-	return d.conn.Read(p)
+	n, err := d.conn.Read(p)
+	d.read += n
+	return n, err
 }
 
 // Write implements the io.Writer interface as well as providing us
 // with an early return for any accept errors
-func (d *passiveDataConn) Write(p []byte) (n int, err error) {
+func (d *passiveDataConn) Write(p []byte) (int, error) {
 	if err := d.ctx.Err(); err != nil {
 		return 0, err
 	}
@@ -170,7 +175,9 @@ func (d *passiveDataConn) Write(p []byte) (n int, err error) {
 		return 0, d.err
 	}
 
-	return d.conn.Write(p)
+	n, err := d.conn.Write(p)
+	d.written += n
+	return n, err
 }
 
 // isErrorAddressAlreadyInUse checks to see if this is a bind to port issue
@@ -202,5 +209,7 @@ func isErrorAddressAlreadyInUse(err error) bool {
 	return false
 }
 
-func (d *passiveDataConn) Host() string { return d.host }
-func (d *passiveDataConn) Port() int    { return int(d.port) }
+func (d *passiveDataConn) Host() string      { return d.host }
+func (d *passiveDataConn) Port() int         { return int(d.port) }
+func (d *passiveDataConn) BytesRead() int    { return d.read }
+func (d *passiveDataConn) BytesWritten() int { return d.written }

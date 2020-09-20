@@ -89,9 +89,7 @@ func (c commandPROT) Execute(ctx context.Context, s *Session, params []string) e
 		return s.ReplyStatus(StatusParameterNotImplemented)
 	}
 
-	s.ReplyWithMessage(StatusOK, fmt.Sprintf("Protection Level '%s' accepted.", params[0]))
-
-	return nil
+	return s.ReplyWithMessage(StatusOK, fmt.Sprintf("Protection Level '%s' accepted.", params[0]))
 }
 
 func init() {
