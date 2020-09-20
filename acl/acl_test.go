@@ -71,7 +71,7 @@ func TestNewFromString(t *testing.T) {
 func TestAllowed(t *testing.T) {
 	var tests = []struct {
 		input    string
-		user     TestUser
+		user     *User
 		expected bool
 	}{
 		{

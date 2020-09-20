@@ -29,31 +29,9 @@ func closeMemoryShadowStore(t *testing.T, ss Shadow) {
 	}
 }
 
-type TestUser struct {
-	name   string
-	groups []string
-}
-
-func (u TestUser) Name() string {
-	return u.name
-}
-
-func (u TestUser) Groups() []string {
-	return u.groups
-}
-
-func (u TestUser) PrimaryGroup() string {
-	if len(u.groups) > 0 {
-		return u.groups[0]
-	}
-	return "nobody"
-}
-
-func newTestUser(name string, groups ...string) TestUser {
-	return TestUser{
-		name:   name,
-		groups: groups,
-	}
+func newTestUser(name string, groups ...string) *acl.User {
+	u := acl.NewUser(name, groups)
+	return &u
 }
 
 func checkErr(t *testing.T, got, expected error) {
@@ -84,7 +62,7 @@ func createFile(t *testing.T, fs *Filesystem, path, contents string) {
 	}
 }
 
-func setShadowOwner(t *testing.T, fs *Filesystem, path string, owner TestUser) {
+func setShadowOwner(t *testing.T, fs *Filesystem, path string, owner *acl.User) {
 	if err := fs.shadow.Set(path, owner.Name(), owner.PrimaryGroup()); err != nil {
 		t.Fatalf("unexpected err setting shadow owner: %s", err)
 	}

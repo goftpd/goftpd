@@ -2,28 +2,8 @@ package acl
 
 import "testing"
 
-type TestUser struct {
-	name   string
-	groups []string
-}
-
-func (u TestUser) Name() string {
-	return u.name
-}
-
-func (u TestUser) Groups() []string {
-	return u.groups
-}
-
-func (u TestUser) PrimaryGroup() string {
-	if len(u.groups) > 0 {
-		return u.groups[0]
-	}
-	return "nobody"
-}
-
-func newTestUser(name string, groups ...string) TestUser {
-	return TestUser{
+func newTestUser(name string, groups ...string) *User {
+	return &User{
 		name:   name,
 		groups: groups,
 	}

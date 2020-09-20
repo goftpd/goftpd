@@ -14,7 +14,7 @@ func TestNewFilesystemMakeDir(t *testing.T) {
 	var tests = []struct {
 		line string
 		path string
-		user TestUser
+		user *acl.User
 		err  error
 	}{
 		{
@@ -82,7 +82,7 @@ func TestDownloadFile(t *testing.T) {
 
 	var tests = []struct {
 		path string
-		user TestUser
+		user *acl.User
 		err  error
 	}{
 		{
@@ -141,7 +141,7 @@ func TestUploadFile(t *testing.T) {
 		path    string
 		dupe    bool
 		content string
-		user    TestUser
+		user    *acl.User
 		err     error
 	}{
 		{
@@ -209,8 +209,8 @@ func TestResumeUploadFile(t *testing.T) {
 		path    string
 		rules   []string
 		content string
-		owner   TestUser
-		user    TestUser
+		owner   *acl.User
+		user    *acl.User
 		err     error
 	}{
 		{
@@ -353,8 +353,8 @@ func TestRenameFile(t *testing.T) {
 		path    string
 		newpath string
 		rules   []string
-		owner   TestUser
-		user    TestUser
+		owner   *acl.User
+		user    *acl.User
 		err     error
 	}{
 		{
@@ -481,8 +481,8 @@ func TestDeleteFile(t *testing.T) {
 		create bool
 		path   string
 		rules  []string
-		owner  TestUser
-		user   TestUser
+		owner  *acl.User
+		user   *acl.User
 		err    error
 	}{
 		{

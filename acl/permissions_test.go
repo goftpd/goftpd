@@ -139,7 +139,7 @@ func TestPermissionsCheck(t *testing.T) {
 		input    string
 		path     string
 		scope    PermissionScope
-		user     TestUser
+		user     *User
 		expected bool
 	}{
 		{
