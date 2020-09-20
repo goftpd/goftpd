@@ -22,6 +22,7 @@ type VFS interface {
 	ResumeUploadFile(string, *acl.User) (io.WriteCloser, error)
 	RenameFile(string, string, *acl.User) error
 	DeleteFile(string, *acl.User) error
+	DeleteDir(string, *acl.User) error
 	ListDir(string, *acl.User) (FileList, error)
 }
 
@@ -231,6 +232,55 @@ func (fs *Filesystem) DeleteFile(path string, user *acl.User) error {
 		if !owner {
 			return acl.ErrPermissionDenied
 		}
+	}
+
+	finfo, err := fs.chroot.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	if finfo.IsDir() {
+		return errors.New("can not delete directory.")
+	}
+
+	if err := fs.chroot.Remove(path); err != nil {
+		return err
+	}
+
+	if err := fs.shadow.Remove(path); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// DeleteDir checks to see if the user has permission to delete the dir (checking delete and
+// deleteown scopes).
+func (fs *Filesystem) DeleteDir(path string, user *acl.User) error {
+	if !fs.permissions.Allowed(acl.PermissionScopeDelete, path, user) {
+
+		// not allowed to globally delete, check if this is ours and we can delete our own
+		if !fs.permissions.Allowed(acl.PermissionScopeDeleteOwn, path, user) {
+			return acl.ErrPermissionDenied
+		}
+
+		owner, err := fs.checkOwnership(path, user)
+		if err != nil {
+			return err
+		}
+
+		if !owner {
+			return acl.ErrPermissionDenied
+		}
+	}
+
+	finfo, err := fs.chroot.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	if !finfo.IsDir() {
+		return errors.New("can not delete file.")
 	}
 
 	if err := fs.chroot.Remove(path); err != nil {
