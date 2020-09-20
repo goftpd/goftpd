@@ -12,15 +12,8 @@ import (
 	"strings"
 
 	"github.com/goftpd/goftpd/acl"
-)
-
-type SessionState int
-
-const (
-	SessionStateNull SessionState = iota
-	SessionStateAny
-	SessionStateAuth
-	SessionStateLoggedIn
+	"github.com/goftpd/goftpd/ftp/cmd"
+	"github.com/goftpd/goftpd/vfs"
 )
 
 // Session represents an FTP client connection's control
@@ -29,10 +22,10 @@ type Session struct {
 	server *Server
 
 	control *Control
-	data    Data
+	data    cmd.DataConn
 
 	// state
-	state           SessionState
+	state           cmd.SessionState
 	dataProtected   bool
 	binaryMode      bool
 	lastCommand     string
@@ -40,18 +33,81 @@ type Session struct {
 	restartPosition int
 
 	// authentication
-	loginUser string
+	login string
 
 	// fs abstract away?
 	currentDir string
 }
 
+// SetState sets the current state of the session
+func (s *Session) SetState(state cmd.SessionState) { s.state = state }
+
 // State shows the current state of the session
-func (s *Session) State() SessionState { return s.state }
+func (s *Session) State() cmd.SessionState { return s.state }
+
+// SetBinaryMode sets the current state of the session
+func (s *Session) SetBinaryMode(t bool) { s.binaryMode = t }
+
+// BinaryMode shows the current state of the session
+func (s *Session) BinaryMode() bool { return s.binaryMode }
+
+// SetDataProtected sets the current state of the session
+func (s *Session) SetDataProtected(t bool) { s.dataProtected = t }
+
+// DataProtected shows the current state of the session
+func (s *Session) DataProtected() bool { return s.dataProtected }
+
+// SetRestartPosition sets the current state of the session
+func (s *Session) SetRestartPosition(t int) { s.restartPosition = t }
+
+// RestartPosition shows the current state of the session
+func (s *Session) RestartPosition() int { return s.restartPosition }
+
+// SetRenameFrom sets the current state of the session
+func (s *Session) SetRenameFrom(t []string) { s.renameFrom = t }
+
+// CWD gets the current working directory
+func (s *Session) CWD() string { return s.currentDir }
+
+// SetCWD sets the current working directory
+func (s *Session) SetCWD(t string) { s.currentDir = t }
+
+// LastCommnad returns the last command to be successful
+func (s *Session) LastCommand() string { return s.lastCommand }
+
+// RenameFrom shows the current state of the session
+func (s *Session) RenameFrom() []string { return s.renameFrom }
+
+// SetLogin sets the current state of the session
+func (s *Session) SetLogin(t string) { s.login = t }
+
+// Login shows the current state of the session
+func (s *Session) Login() string { return s.login }
+
+func (s *Session) Data() cmd.DataConn { return s.data }
+func (s *Session) ClearData()         { s.data = nil }
+func (s *Session) NewPassiveDataConn(ctx context.Context) error {
+	d, err := s.server.newPassiveDataConn(ctx, s.dataProtected)
+	if err != nil {
+		return err
+	}
+	s.data = d
+	return nil
+}
+func (s *Session) NewActiveDataConn(ctx context.Context, params string) error {
+	d, err := s.server.newActiveDataConn(ctx, params, s.dataProtected)
+	if err != nil {
+		return err
+	}
+	s.data = d
+	return nil
+}
+
+func (s *Session) FS() vfs.VFS { return s.server.fs }
 
 func (s *Session) User() (*acl.User, bool) {
-	if len(s.loginUser) > 0 {
-		user := acl.NewUser(s.loginUser, []string{s.loginUser})
+	if len(s.login) > 0 {
+		user := acl.NewUser(s.login, []string{s.login})
 		return &user, true
 	}
 	return nil, false
@@ -64,14 +120,14 @@ func (s *Session) Reset() {
 	s.control = nil
 	s.data = nil
 
-	s.state = SessionStateNull
+	s.state = cmd.SessionStateNull
 	s.dataProtected = false
 	s.binaryMode = false
 	s.lastCommand = ""
 	s.renameFrom = []string{}
 	s.restartPosition = 0
 
-	s.loginUser = ""
+	s.login = ""
 
 	s.currentDir = "/"
 }
@@ -93,24 +149,24 @@ func (s *Session) Close() error {
 }
 
 // ReplyStatus replies with the default message for a status code
-func (s *Session) ReplyStatus(st Status) error {
+func (s *Session) ReplyStatus(st cmd.Status) error {
 	return s.reply(st.Code, st.Message)
 }
 
 // ReplyStatusArgs replies with the default message for a status code
 // but takes args
-func (s *Session) ReplyWithArgs(st Status, args ...interface{}) error {
+func (s *Session) ReplyWithArgs(st cmd.Status, args ...interface{}) error {
 	return s.reply(st.Code, fmt.Sprintf(st.Message, args...))
 }
 
 // ReplyError replies with the default message for a status code
 // but takes args
-func (s *Session) ReplyError(st Status, err error) error {
+func (s *Session) ReplyError(st cmd.Status, err error) error {
 	return s.reply(st.Code, fmt.Sprintf("%s: %s", st.Message, err.Error()))
 }
 
 // ReplyWithMessage replies with custom message
-func (s *Session) ReplyWithMessage(st Status, message string) error {
+func (s *Session) ReplyWithMessage(st cmd.Status, message string) error {
 	return s.reply(st.Code, message)
 }
 
@@ -121,49 +177,49 @@ func (s *Session) reply(code int, message string) error {
 	b := strings.Builder{}
 
 	if _, err := b.WriteString(fmt.Sprintf("%d", code)); err != nil {
-		return CommandFatalError{err}
+		return cmd.NewFatalError(err)
 	}
 
 	if len(parts) > 1 {
 		if _, err := b.WriteString("-"); err != nil {
-			return CommandFatalError{err}
+			return cmd.NewFatalError(err)
 		}
 	}
 
 	if _, err := b.WriteString(" "); err != nil {
-		return CommandFatalError{err}
+		return cmd.NewFatalError(err)
 	}
 
 	for _, p := range parts {
 		if _, err := b.WriteString(p + "\r\n"); err != nil {
-			return CommandFatalError{err}
+			return cmd.NewFatalError(err)
 		}
 	}
 
 	if len(parts) > 2 {
 		if _, err := b.WriteString(fmt.Sprintf("%d End.", code)); err != nil {
-			return CommandFatalError{err}
+			return cmd.NewFatalError(err)
 		}
 	}
 
 	if _, err := b.WriteString("\r\n"); err != nil {
-		return CommandFatalError{err}
+		return cmd.NewFatalError(err)
 	}
 
 	_, err := s.control.writer.WriteString(b.String())
 	if err != nil {
-		return CommandFatalError{err}
+		return cmd.NewFatalError(err)
 	}
 
 	if err := s.control.writer.Flush(); err != nil {
-		return CommandFatalError{err}
+		return cmd.NewFatalError(err)
 	}
 
 	return nil
 }
 
-// upgrade a sessions underlying connection to use TLS
-func (s *Session) upgrade() error {
+// Upgrade a sessions underlying connection to use TLS
+func (s *Session) Upgrade() error {
 	tlsConn := tls.Server(s.control, s.server.TLSConfig())
 	if err := tlsConn.Handshake(); err != nil {
 		return err
@@ -200,7 +256,7 @@ func (s *Session) serve(ctx context.Context, server *Server, conn net.Conn) {
 	s.control = newControl(conn)
 	s.server = server
 
-	s.ReplyWithMessage(StatusServiceReady, "Welcome!")
+	s.ReplyWithMessage(cmd.StatusServiceReady, "Welcome!")
 
 	defer s.Close()
 
@@ -233,28 +289,29 @@ func (s *Session) serve(ctx context.Context, server *Server, conn net.Conn) {
 // handleCommand takes in the client input in the form of a slice of strings
 // and tries to find and execute a command. can return an error
 func (session *Session) handleCommand(ctx context.Context, fields []string) error {
-	cmd, ok := commandMap[strings.ToUpper(fields[0])]
+	// TODO: ugly as sin
+	c, ok := cmd.CommandMap[strings.ToUpper(fields[0])]
 
 	if !ok {
-		return session.ReplyStatus(StatusNotImplemented)
+		return session.ReplyStatus(cmd.StatusNotImplemented)
 	}
 
-	if session.State() < cmd.RequireState() {
-		switch cmd.RequireState() {
-		case SessionStateAuth:
-			return session.ReplyWithMessage(StatusBadCommandSequence, "Please send AUTH first.")
-		case SessionStateLoggedIn:
-			return session.ReplyStatus(StatusNotLoggedIn)
+	if session.State() < c.RequireState() {
+		switch c.RequireState() {
+		case cmd.SessionStateAuth:
+			return session.ReplyWithMessage(cmd.StatusBadCommandSequence, "Please send AUTH first.")
+		case cmd.SessionStateLoggedIn:
+			return session.ReplyStatus(cmd.StatusNotLoggedIn)
 
 		}
-		return session.ReplyStatus(StatusNotImplemented)
+		return session.ReplyStatus(cmd.StatusNotImplemented)
 	}
 
 	// pre command hook
-	if err := cmd.Execute(ctx, session, fields[1:]); err != nil {
+	if err := c.Execute(ctx, session, fields[1:]); err != nil {
 		// check the type of the error, if its a fatal err then
 		// return it, otherwise return nil to continue
-		if errors.Is(err, ErrCommandFatal) {
+		if errors.Is(err, cmd.ErrCommandFatal) {
 			return err
 		}
 
