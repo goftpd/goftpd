@@ -37,6 +37,7 @@ func init() {
 				"makedir / *",
 				"list / *",
 				"delete / *",
+				"rename / *",
 			}
 
 			var rules []acl.Rule

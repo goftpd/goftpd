@@ -35,6 +35,8 @@ type Session struct {
 	state         SessionState
 	dataProtected bool
 	binaryMode    bool
+	lastCommand   string
+	renameFrom    []string
 
 	// authentication
 	loginUser string
@@ -64,6 +66,8 @@ func (s *Session) Reset() {
 	s.state = SessionStateNull
 	s.dataProtected = false
 	s.binaryMode = false
+	s.lastCommand = ""
+	s.renameFrom = []string{}
 
 	s.loginUser = ""
 
@@ -254,6 +258,8 @@ func (session *Session) handleCommand(ctx context.Context, fields []string) erro
 
 		return nil
 	}
+
+	session.lastCommand = strings.ToUpper(fields[0])
 
 	// post command hook
 
