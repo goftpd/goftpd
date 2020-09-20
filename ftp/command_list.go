@@ -57,9 +57,14 @@ func (c commandLIST) Execute(ctx context.Context, s *Session, params []string) e
 	var options, path string
 
 	// check if we have options and set the path eitherway
+	// check if we have options and set the path eitherway
 	if len(params[0]) > 0 && params[0][0] == '-' {
 		options = params[0]
-		params[0] = ""
+		if len(params) > 1 {
+			params = params[1:]
+		} else {
+			params = []string{}
+		}
 	}
 
 	path = s.server.fs.Join(s.currentDir, params)

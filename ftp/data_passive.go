@@ -213,3 +213,4 @@ func (d *passiveDataConn) Host() string      { return d.host }
 func (d *passiveDataConn) Port() int         { return int(d.port) }
 func (d *passiveDataConn) BytesRead() int    { return d.read }
 func (d *passiveDataConn) BytesWritten() int { return d.written }
+func (d *passiveDataConn) Kind() string      { return "Passive" }

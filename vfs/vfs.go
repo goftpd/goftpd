@@ -52,6 +52,7 @@ func NewFilesystem(chroot billy.Filesystem, shadow Shadow, permissions *acl.Perm
 
 // Join tries to give back a safe path
 func (fs Filesystem) Join(current string, params []string) string {
+
 	path := strings.Join(params, " ")
 
 	if !strings.HasPrefix(path, "/") {

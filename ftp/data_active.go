@@ -97,3 +97,4 @@ func (d *activeDataConn) Host() string      { return d.host }
 func (d *activeDataConn) Port() int         { return int(d.port) }
 func (d *activeDataConn) BytesRead() int    { return d.read }
 func (d *activeDataConn) BytesWritten() int { return d.written }
+func (d *activeDataConn) Kind() string      { return "Active" }
