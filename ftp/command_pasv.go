@@ -2,6 +2,8 @@ package ftp
 
 import (
 	"context"
+	"fmt"
+	"strings"
 )
 
 /*
@@ -35,7 +37,15 @@ func (c commandPASV) Execute(ctx context.Context, s *Session, params []string) e
 
 	s.data = data
 
-	return s.ReplyWithArgs(StatusPassiveMode, s.data.String())
+	return s.ReplyWithArgs(StatusPassiveMode, c.toString(s.data))
+}
+
+func (c commandPASV) toString(d Data) string {
+	p1 := d.Port() / 256
+	p2 := d.Port() - (p1 * 256)
+
+	parts := strings.Split(d.Host(), ".")
+	return fmt.Sprintf("(%s,%s,%s,%s,%d,%d)", parts[0], parts[1], parts[2], parts[3], p1, p2)
 }
 
 func init() {
