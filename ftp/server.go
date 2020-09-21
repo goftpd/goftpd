@@ -16,15 +16,16 @@ import (
 // ServerOpts is used to create a new Server. PublicIP, TLSCertFile,
 // TLSKeyFile are all required.
 type ServerOpts struct {
-	Name         string
-	Host         string
-	Port         int
-	PassivePorts []int
+	Name         string `goftpd:"sitename_short"`
+	LongName     string `goftpd:"sitename_long"`
+	Host         string `goftpd:"host"`
+	Port         int    `goftpd:"port"`
+	PassivePorts []int  `goftpd:"passive_ports"`
 
 	// required
-	PublicIP    string
-	TLSCertFile string
-	TLSKeyFile  string
+	PublicIP    string `goftpd:"public_ip"`
+	TLSCertFile string `goftpd:"tls_cert_file"`
+	TLSKeyFile  string `goftpd:"tls_key_file"`
 }
 
 // Server. Serves stuff.

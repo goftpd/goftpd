@@ -20,3 +20,7 @@ func NewUser(name string, groups []string) User {
 		groups: groups,
 	}
 }
+
+type Group struct {
+	name string
+}
