@@ -46,7 +46,7 @@ type Server struct {
 // NewServer returns a Server using the supplied ServerOpts and VFS. Will
 // fail if some required options are missing or it's unable to load
 // the specified TLS cert/key files.
-func NewServer(opts ServerOpts, fs vfs.VFS) (*Server, error) {
+func NewServer(opts *ServerOpts, fs vfs.VFS) (*Server, error) {
 	// validation
 	if len(opts.PublicIP) == 0 {
 		return nil, errors.New("public_ip required")
@@ -89,7 +89,7 @@ func NewServer(opts ServerOpts, fs vfs.VFS) (*Server, error) {
 	tlsConfig.Certificates = []tls.Certificate{cert}
 
 	s := Server{
-		ServerOpts: &opts,
+		ServerOpts: opts,
 		tlsConfig:  tlsConfig,
 		fs:         fs,
 		sessionPool: sync.Pool{

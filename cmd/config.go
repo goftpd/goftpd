@@ -19,12 +19,15 @@ func init() {
 				return err
 			}
 
-			serverOpts, err := c.ParseServerOpts()
-			if err != nil {
+			if _, err := c.ParseServerOpts(); err != nil {
 				return err
 			}
 
-			log.Printf("%+v", serverOpts)
+			if _, err := c.ParseFS(); err != nil {
+				return err
+			}
+
+			log.Println("config file parsed ok")
 
 			return nil
 		},

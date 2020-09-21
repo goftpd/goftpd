@@ -16,11 +16,13 @@ type Namespace string
 const (
 	NamespaceServer Namespace = "server"
 	NamespaceACL    Namespace = "acl"
+	NamespaceFS     Namespace = "fs"
 )
 
 var stringToNamespace = map[string]Namespace{
 	string(NamespaceServer): NamespaceServer,
 	string(NamespaceACL):    NamespaceACL,
+	string(NamespaceFS):     NamespaceFS,
 }
 
 type Line struct {
