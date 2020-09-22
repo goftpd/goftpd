@@ -1,8 +1,10 @@
 package acl
 
 import (
+	"sort"
 	"strings"
 
+	"github.com/gobwas/glob"
 	"github.com/pkg/errors"
 )
 
@@ -10,6 +12,7 @@ import (
 type Rule struct {
 	path  string
 	scope PermissionScope
+	g     glob.Glob
 	acl   *ACL
 }
 
@@ -32,6 +35,13 @@ func NewRule(line string) (Rule, error) {
 
 	rule.path = fields[1]
 
+	g, err := glob.Compile(rule.path, '/')
+	if err != nil {
+		return rule, err
+	}
+
+	rule.g = g
+
 	acl, err := NewFromString(strings.Join(fields[2:], " "))
 	if err != nil {
 		return rule, err
@@ -44,29 +54,30 @@ func NewRule(line string) (Rule, error) {
 // Permissions is a snapshot of the current permissions. They are stored
 // as PermissionScope and then path
 type Permissions struct {
-	current map[PermissionScope]map[string]*ACL
+	current map[PermissionScope][]Rule
 }
 
 // NewPermissions takes a slice of Rules and creates a way for callers to check ACL
 // for a given path and scope
 func NewPermissions(rules []Rule) (*Permissions, error) {
 	p := Permissions{
-		current: make(map[PermissionScope]map[string]*ACL, 0),
+		current: make(map[PermissionScope][]Rule, 0),
 	}
 
 	for _, r := range rules {
 		s, ok := p.current[r.scope]
 		if !ok {
-			s = make(map[string]*ACL, 0)
+			s = make([]Rule, 0)
 			p.current[r.scope] = s
 		}
 
-		// if path exists already for this scope error out
-		if _, ok := s[r.path]; ok {
-			return nil, errors.Errorf("path '%s' for scope '%s' already exists", r.path, r.scope)
-		}
+		p.current[r.scope] = append(p.current[r.scope], r)
+	}
 
-		s[r.path] = r.acl
+	for k := range p.current {
+		sort.Slice(p.current[k], func(i, j int) bool {
+			return len(p.current[k][j].path) < len(p.current[k][i].path)
+		})
 	}
 
 	return &p, nil
@@ -83,18 +94,11 @@ func (p *Permissions) Allowed(scope PermissionScope, path string, user *User) bo
 
 	path = strings.ToLower(path)
 
-	// all paths are represented as unix, although they can be run on windows
-	parts := strings.Split(path, "/")
+	for _, r := range s {
 
-	for i := len(parts); i >= 0; i-- {
-		if acl, ok := s[strings.Join(parts[:i], "/")]; ok {
-			return acl.Allowed(user)
+		if r.g.Match(path) {
+			return r.acl.Allowed(user)
 		}
-	}
-
-	// check "/" explicitly
-	if acl, ok := s["/"]; ok {
-		return acl.Allowed(user)
 	}
 
 	return false

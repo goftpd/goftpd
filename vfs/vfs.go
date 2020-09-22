@@ -350,7 +350,7 @@ func (fs *Filesystem) DeleteDir(path string, user *acl.User) error {
 // ListDir checks to see if the user has permission to list the dir and then does so.
 // Has optimisation potential by being provided a FileList
 func (fs *Filesystem) ListDir(path string, user *acl.User) (FileList, error) {
-	if !fs.permissions.Allowed(acl.PermissionScopeList, path, user) {
+	if !fs.permissions.Allowed(acl.PermissionScopeDownload, path, user) {
 		return nil, acl.ErrPermissionDenied
 	}
 
@@ -385,10 +385,10 @@ func (fs *Filesystem) ListDir(path string, user *acl.User) (FileList, error) {
 		}
 
 		// check if we have permission to see user and group, as it's hide, permissions are reversed
-		if fs.permissions.Allowed(acl.PermissionScopeHideUser, fullpath, user) {
+		if !fs.permissions.Allowed(acl.PermissionScopeShowUser, fullpath, user) {
 			username = fs.DefaultUser
 		}
-		if fs.permissions.Allowed(acl.PermissionScopeHideGroup, fullpath, user) {
+		if !fs.permissions.Allowed(acl.PermissionScopeShowGroup, fullpath, user) {
 			group = fs.DefaultGroup
 		}
 

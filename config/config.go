@@ -14,6 +14,7 @@ import (
 type Namespace string
 
 const (
+	NamespaceVar    Namespace = "var"
 	NamespaceServer Namespace = "server"
 	NamespaceACL    Namespace = "acl"
 	NamespaceFS     Namespace = "fs"
@@ -23,6 +24,7 @@ var stringToNamespace = map[string]Namespace{
 	string(NamespaceServer): NamespaceServer,
 	string(NamespaceACL):    NamespaceACL,
 	string(NamespaceFS):     NamespaceFS,
+	string(NamespaceVar):    NamespaceVar,
 }
 
 type Line struct {
@@ -32,20 +34,37 @@ type Line struct {
 
 type Config struct {
 	lines map[Namespace][]Line
+
+	variables map[string]string
 }
 
 func ParseFile(file string) (*Config, error) {
+	c := Config{
+		lines:     make(map[Namespace][]Line, 0),
+		variables: make(map[string]string, 0),
+	}
+
+	// first read in any variables
+	if err := c.parseVariables(file); err != nil {
+		return nil, err
+	}
+
+	// then read everything else
+	if err := c.parseLines(file); err != nil {
+		return nil, err
+	}
+
+	return &c, nil
+}
+
+func (c *Config) parseVariables(file string) error {
 	f, err := os.Open(file)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
-
-	c := Config{
-		lines: make(map[Namespace][]Line, 0),
-	}
 
 	var line int
 	for scanner.Scan() {
@@ -74,6 +93,71 @@ func ParseFile(file string) (*Config, error) {
 			continue
 		}
 
+		// check if this is a variable
+		if ns != NamespaceVar {
+			continue
+		}
+		c.variables[fields[1]] = strings.Join(fields[2:], " ")
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Config) parseLines(file string) error {
+	f, err := os.Open(file)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+
+	var line int
+	for scanner.Scan() {
+		line++
+
+		fields := strings.Fields(scanner.Text())
+
+		// ignore empty lines
+		if len(fields) == 0 {
+			continue
+		}
+
+		// ignore comments
+		if len(fields) > 0 && len(fields[0]) > 0 && fields[0][0] == '#' {
+			continue
+		}
+
+		if len(fields) < 2 {
+			fmt.Fprintf(os.Stderr, "Config Error: parsing line %d: not enough arguments: '%s'\n", line, scanner.Text())
+			continue
+		}
+
+		ns, ok := stringToNamespace[fields[0]]
+		if !ok {
+			fmt.Fprintf(os.Stderr, "Config Error: parsing line %d: '%s' is not a valid namespace.\n", line, fields[0])
+			continue
+		}
+
+		// check if this is a variable
+		if ns == NamespaceVar {
+			continue
+		}
+
+		for idx, f := range fields {
+			if len(f) > 1 && f[0] == '$' {
+				v, ok := c.variables[f[1:]]
+				if !ok {
+					return fmt.Errorf("Config Error: uninitialized variable '%s' on line %d", f, line)
+				}
+				fields[idx] = v
+			}
+		}
+
 		if _, ok := c.lines[ns]; !ok {
 			c.lines[ns] = make([]Line, 0)
 		}
@@ -82,14 +166,13 @@ func ParseFile(file string) (*Config, error) {
 			text: strings.Join(fields[1:], " "),
 			line: line,
 		})
-
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, err
+		return err
 	}
 
-	return &c, nil
+	return nil
 }
 
 // parse searches opts for any fields tagged with "goftpd" and then attempts
