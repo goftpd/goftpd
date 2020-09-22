@@ -5,6 +5,49 @@
 Aim is to be a replacement for glftpd, but with less bloat, more testing and be
 more extendable. 
 
+A working config:
+
+```
+# acl settings
+# ------------
+acl download 	/ 		*
+acl upload 		/ 		*
+acl resume 		/ 		*
+acl hideuser 	/		!-admin *
+acl hidegroup	/		!-admin *
+acl list 		/		*
+acl makedir		/		*
+
+# server settings
+# ---------------
+server sitename_short 	go
+server sitename_long 	goftpd
+server host				::
+server port				2121
+# range of passive ports allowed  to be used
+server passive_ports	1000 5000
+# used for pasv
+server public_ip		127.0.0.1
+# required unless tls_autogen (TODO)
+server tls_cert_file	site/cert.pem
+server tls_key_file		site/key.pem
+
+# fs based 
+# --------
+fs rootpath			site/data
+# optional path where shadow fs database will be kept
+fs shadow_db		shadow.db
+# default_* if user or group isnt found in shadowdb or 
+# permissions are to hide user/group use this user/group
+fs default_user		nobody
+fs default_group	ohhai
+
+# regexp. hide these from listing and prevent from being downloaded
+# also protects them from rename and delete
+fs hide (?i)\.(message)$
+```
+
+## Ramblings
 The core will implement the FTP RFC with pluggable Auth and Filesystem
 components. This means that in the future, if someone were crazy, they could
 authenticate users with Facebook and have the underlying storage in S3.
@@ -27,13 +70,8 @@ acl resume /path -user =group !*
 acl resumeown /path -user =group *
 acl makedir /path -user =group !*
 acl list /path -user =group *
-```
-
-There will also be list restrictions:
-
-```
-list hideuser / !=staff *
-list hidegroup / !=staff *
+acl hideuser / !=staff *
+acl hidegroup / !=staff *
 ```
 
 The filesystem currently does not use UID/GID as a way of storing meta data.
@@ -54,4 +92,3 @@ script post 'RETR' event scripts/wowow.lua
 script pre 'MKD' trigger scripts/omg.lua
 script post 'SITE BOOP' trigger scripts/doaboop.lua
 ```
-
