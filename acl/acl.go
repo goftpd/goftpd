@@ -147,9 +147,9 @@ func (c *collection) hasGroup(g string) bool {
 	return c.has(c.groups, g)
 }
 
-// UserAllowed checks to see if given User is allowed or blocked. Default is to
+// UserMatch checks to see if given User is allowed or blocked. Default is to
 // block access
-func (a *ACL) Allowed(u *User) bool {
+func (a *ACL) Match(u *User) bool {
 	// check blocked lists
 	if a.blocked.hasUser(u.Name()) {
 		return false

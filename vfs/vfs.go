@@ -86,7 +86,12 @@ func (fs *Filesystem) Stop() error {
 
 // MakeDir checks to see if the user has permission to create a new directory. Does so if allowed
 func (fs *Filesystem) MakeDir(path string, user *acl.User) error {
-	if !fs.permissions.Allowed(acl.PermissionScopeMakeDir, path, user) {
+	if !fs.permissions.Match(acl.PermissionScopeMakeDir, path, user) {
+		return acl.ErrPermissionDenied
+	}
+
+	// check for private
+	if match, found := fs.permissions.MatchNoDefault(acl.PermissionScopePrivate, path, user); found && !match {
 		return acl.ErrPermissionDenied
 	}
 
@@ -117,8 +122,13 @@ func (fs *Filesystem) MakeDir(path string, user *acl.User) error {
 // DownloadFile checks to see if the user has permission to read the file (checking download
 // permissions from high level to low level). Returns an io.ReadCloser if allowed
 func (fs *Filesystem) DownloadFile(path string, user *acl.User) (ReadSeekCloser, error) {
-	if !fs.permissions.Allowed(acl.PermissionScopeDownload, path, user) {
+	if !fs.permissions.Match(acl.PermissionScopeDownload, path, user) {
 		return nil, acl.ErrPermissionDenied
+	}
+
+	// check for private
+	if match, found := fs.permissions.MatchNoDefault(acl.PermissionScopePrivate, path, user); found && !match {
+		return nil, os.ErrNotExist
 	}
 
 	if fs.hideRE != nil {
@@ -141,7 +151,12 @@ func (fs *Filesystem) DownloadFile(path string, user *acl.User) (ReadSeekCloser,
 // permissions from high level to low level). Returns an io.Writer if allowed. Does not
 // truncate a file
 func (fs *Filesystem) UploadFile(path string, user *acl.User) (io.WriteCloser, error) {
-	if !fs.permissions.Allowed(acl.PermissionScopeUpload, path, user) {
+	if !fs.permissions.Match(acl.PermissionScopeUpload, path, user) {
+		return nil, acl.ErrPermissionDenied
+	}
+
+	// check for private
+	if match, found := fs.permissions.MatchNoDefault(acl.PermissionScopePrivate, path, user); found && !match {
 		return nil, acl.ErrPermissionDenied
 	}
 
@@ -162,8 +177,13 @@ func (fs *Filesystem) UploadFile(path string, user *acl.User) (io.WriteCloser, e
 // permissions from high level to low level). It also checks to see if they have resume writes.
 // Returns an io.Writer if allowed.
 func (fs *Filesystem) ResumeUploadFile(path string, user *acl.User) (io.WriteCloser, error) {
-	if !fs.permissions.Allowed(acl.PermissionScopeUpload, path, user) {
+	if !fs.permissions.Match(acl.PermissionScopeUpload, path, user) {
 		return nil, acl.ErrPermissionDenied
+	}
+
+	// check for private
+	if match, found := fs.permissions.MatchNoDefault(acl.PermissionScopePrivate, path, user); found && !match {
+		return nil, os.ErrNotExist
 	}
 
 	if fs.hideRE != nil {
@@ -174,9 +194,9 @@ func (fs *Filesystem) ResumeUploadFile(path string, user *acl.User) (io.WriteClo
 		}
 	}
 
-	if !fs.permissions.Allowed(acl.PermissionScopeResume, path, user) {
+	if !fs.permissions.Match(acl.PermissionScopeResume, path, user) {
 		// not allowed to globally resume, check if this is ours and we can resume our own
-		if !fs.permissions.Allowed(acl.PermissionScopeResumeOwn, path, user) {
+		if !fs.permissions.Match(acl.PermissionScopeResumeOwn, path, user) {
 			return nil, acl.ErrPermissionDenied
 		}
 
@@ -211,8 +231,16 @@ func (fs *Filesystem) ResumeUploadFile(path string, user *acl.User) (io.WriteClo
 // renameown scopes).
 func (fs *Filesystem) RenameFile(oldpath, newpath string, user *acl.User) error {
 	// make sure that the user has permission to upload to the new path
-	if !fs.permissions.Allowed(acl.PermissionScopeUpload, newpath, user) {
+	if !fs.permissions.Match(acl.PermissionScopeUpload, newpath, user) {
 		return acl.ErrPermissionDenied
+	}
+
+	// check for private
+	if match, found := fs.permissions.MatchNoDefault(acl.PermissionScopePrivate, oldpath, user); found && !match {
+		return os.ErrNotExist
+	}
+	if match, found := fs.permissions.MatchNoDefault(acl.PermissionScopePrivate, newpath, user); found && !match {
+		return os.ErrNotExist
 	}
 
 	if fs.hideRE != nil {
@@ -223,10 +251,10 @@ func (fs *Filesystem) RenameFile(oldpath, newpath string, user *acl.User) error 
 		}
 	}
 
-	if !fs.permissions.Allowed(acl.PermissionScopeRename, oldpath, user) {
+	if !fs.permissions.Match(acl.PermissionScopeRename, oldpath, user) {
 
 		// not allowed to globally rename, check if this is ours and we can rename our own
-		if !fs.permissions.Allowed(acl.PermissionScopeRenameOwn, oldpath, user) {
+		if !fs.permissions.Match(acl.PermissionScopeRenameOwn, oldpath, user) {
 			return acl.ErrPermissionDenied
 		}
 
@@ -262,10 +290,10 @@ func (fs *Filesystem) RenameFile(oldpath, newpath string, user *acl.User) error 
 // DeleteFile checks to see if the user has permission to delete the file (checking delete and
 // deleteown scopes).
 func (fs *Filesystem) DeleteFile(path string, user *acl.User) error {
-	if !fs.permissions.Allowed(acl.PermissionScopeDelete, path, user) {
+	if !fs.permissions.Match(acl.PermissionScopeDelete, path, user) {
 
 		// not allowed to globally delete, check if this is ours and we can delete our own
-		if !fs.permissions.Allowed(acl.PermissionScopeDeleteOwn, path, user) {
+		if !fs.permissions.Match(acl.PermissionScopeDeleteOwn, path, user) {
 			return acl.ErrPermissionDenied
 		}
 
@@ -277,6 +305,11 @@ func (fs *Filesystem) DeleteFile(path string, user *acl.User) error {
 		if !owner {
 			return acl.ErrPermissionDenied
 		}
+	}
+
+	// check for private
+	if match, found := fs.permissions.MatchNoDefault(acl.PermissionScopePrivate, path, user); found && !match {
+		return os.ErrNotExist
 	}
 
 	if fs.hideRE != nil {
@@ -310,10 +343,10 @@ func (fs *Filesystem) DeleteFile(path string, user *acl.User) error {
 // DeleteDir checks to see if the user has permission to delete the dir (checking delete and
 // deleteown scopes).
 func (fs *Filesystem) DeleteDir(path string, user *acl.User) error {
-	if !fs.permissions.Allowed(acl.PermissionScopeDelete, path, user) {
+	if !fs.permissions.Match(acl.PermissionScopeDelete, path, user) {
 
 		// not allowed to globally delete, check if this is ours and we can delete our own
-		if !fs.permissions.Allowed(acl.PermissionScopeDeleteOwn, path, user) {
+		if !fs.permissions.Match(acl.PermissionScopeDeleteOwn, path, user) {
 			return acl.ErrPermissionDenied
 		}
 
@@ -325,6 +358,11 @@ func (fs *Filesystem) DeleteDir(path string, user *acl.User) error {
 		if !owner {
 			return acl.ErrPermissionDenied
 		}
+	}
+
+	// check for private
+	if match, found := fs.permissions.MatchNoDefault(acl.PermissionScopePrivate, path, user); found && !match {
+		return os.ErrNotExist
 	}
 
 	finfo, err := fs.chroot.Stat(path)
@@ -350,8 +388,13 @@ func (fs *Filesystem) DeleteDir(path string, user *acl.User) error {
 // ListDir checks to see if the user has permission to list the dir and then does so.
 // Has optimisation potential by being provided a FileList
 func (fs *Filesystem) ListDir(path string, user *acl.User) (FileList, error) {
-	if !fs.permissions.Allowed(acl.PermissionScopeDownload, path, user) {
+	if !fs.permissions.Match(acl.PermissionScopeDownload, path, user) {
 		return nil, acl.ErrPermissionDenied
+	}
+
+	// check for private
+	if match, found := fs.permissions.MatchNoDefault(acl.PermissionScopePrivate, path, user); found && !match {
+		return nil, os.ErrNotExist
 	}
 
 	if fs.hideRE != nil {
@@ -378,6 +421,11 @@ func (fs *Filesystem) ListDir(path string, user *acl.User) (FileList, error) {
 			}
 		}
 
+		// check for private
+		if match, found := fs.permissions.MatchNoDefault(acl.PermissionScopePrivate, fullpath, user); found && !match {
+			continue
+		}
+
 		username, group, err := fs.shadow.Get(fullpath)
 		if err != nil {
 			username = fs.DefaultUser
@@ -385,10 +433,10 @@ func (fs *Filesystem) ListDir(path string, user *acl.User) (FileList, error) {
 		}
 
 		// check if we have permission to see user and group, as it's hide, permissions are reversed
-		if !fs.permissions.Allowed(acl.PermissionScopeShowUser, fullpath, user) {
+		if fs.permissions.Match(acl.PermissionScopeHideUser, fullpath, user) {
 			username = fs.DefaultUser
 		}
-		if !fs.permissions.Allowed(acl.PermissionScopeShowGroup, fullpath, user) {
+		if fs.permissions.Match(acl.PermissionScopeHideGroup, fullpath, user) {
 			group = fs.DefaultGroup
 		}
 

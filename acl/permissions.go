@@ -83,9 +83,9 @@ func NewPermissions(rules []Rule) (*Permissions, error) {
 	return &p, nil
 }
 
-// Allowed takes a scope a path and a *User and checks to see if they are allowed or blocked based on the
-// underlying ACL. Returns bool if they are allowed. Defaults to not allowing.
-func (p *Permissions) Allowed(scope PermissionScope, path string, user *User) bool {
+// Match takes a scope a path and a *User and checks to see if they match any rules defaults
+// to no match
+func (p *Permissions) Match(scope PermissionScope, path string, user *User) bool {
 	s, ok := p.current[scope]
 	if !ok {
 		// potential to return an error here
@@ -97,9 +97,29 @@ func (p *Permissions) Allowed(scope PermissionScope, path string, user *User) bo
 	for _, r := range s {
 
 		if r.g.Match(path) {
-			return r.acl.Allowed(user)
+			return r.acl.Match(user)
 		}
 	}
 
 	return false
+}
+
+// MatchNoDefault takes a scope a path and a *User and checks to see if they match any rules
+func (p *Permissions) MatchNoDefault(scope PermissionScope, path string, user *User) (bool, bool) {
+	s, ok := p.current[scope]
+	if !ok {
+		// potential to return an error here
+		return false, false
+	}
+
+	path = strings.ToLower(path)
+
+	for _, r := range s {
+
+		if r.g.Match(path) {
+			return r.acl.Match(user), true
+		}
+	}
+
+	return false, false
 }
