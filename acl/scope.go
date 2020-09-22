@@ -15,6 +15,8 @@ const (
 	PermissionScopeResumeOwn                 = "resumeown"
 	PermissionScopeMakeDir                   = "makedir"
 	PermissionScopeList                      = "list"
+	PermissionScopeHideUser                  = "hideuser"
+	PermissionScopeHideGroup                 = "hidegroup"
 )
 
 var StringToPermissionScope = map[string]PermissionScope{
@@ -28,4 +30,6 @@ var StringToPermissionScope = map[string]PermissionScope{
 	string(PermissionScopeResumeOwn): PermissionScopeResumeOwn,
 	string(PermissionScopeMakeDir):   PermissionScopeMakeDir,
 	string(PermissionScopeList):      PermissionScopeList,
+	string(PermissionScopeHideUser):  PermissionScopeHideUser,
+	string(PermissionScopeHideGroup): PermissionScopeHideGroup,
 }

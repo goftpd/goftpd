@@ -41,7 +41,7 @@ var (
 	StatusFileActionOK                   = Status{250, "Requested file action okay, completed."}
 	StatusPathCreated                    = Status{257, `"%s" created.`}
 	StatusPendingMoreInfo                = Status{350, "Requested file action pending further information."}
-	StatusActionNotOK                    = Status{550, "Requested action not taken. File unavailable (e.g., file not found, no access)."}
+	StatusActionNotOK                    = Status{550, "Requested action not taken."}
 	StatusActionAbortedError             = Status{451, "Requested action aborted. Local error in processing."}
 	StatusPageTypeUnknown                = Status{551, "Requested action aborted. Page type unknown."}
 	StatusNoDiskFree                     = Status{452, "Requested action not taken. Insufficient storage space in system. File unavailable (e.g., file busy)."}

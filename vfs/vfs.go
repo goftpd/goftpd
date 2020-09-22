@@ -121,6 +121,14 @@ func (fs *Filesystem) DownloadFile(path string, user *acl.User) (ReadSeekCloser,
 		return nil, acl.ErrPermissionDenied
 	}
 
+	if fs.hideRE != nil {
+		if fs.hideRE.MatchString(path) {
+			// do not leak any information, just pretend
+			// it doesnt exist
+			return nil, os.ErrNotExist
+		}
+	}
+
 	f, err := fs.chroot.Open(path)
 	if err != nil {
 		return nil, err
@@ -156,6 +164,14 @@ func (fs *Filesystem) UploadFile(path string, user *acl.User) (io.WriteCloser, e
 func (fs *Filesystem) ResumeUploadFile(path string, user *acl.User) (io.WriteCloser, error) {
 	if !fs.permissions.Allowed(acl.PermissionScopeUpload, path, user) {
 		return nil, acl.ErrPermissionDenied
+	}
+
+	if fs.hideRE != nil {
+		if fs.hideRE.MatchString(path) {
+			// do not leak any information, just pretend
+			// it doesnt exist
+			return nil, os.ErrNotExist
+		}
 	}
 
 	if !fs.permissions.Allowed(acl.PermissionScopeResume, path, user) {
@@ -197,6 +213,14 @@ func (fs *Filesystem) RenameFile(oldpath, newpath string, user *acl.User) error 
 	// make sure that the user has permission to upload to the new path
 	if !fs.permissions.Allowed(acl.PermissionScopeUpload, newpath, user) {
 		return acl.ErrPermissionDenied
+	}
+
+	if fs.hideRE != nil {
+		if fs.hideRE.MatchString(oldpath) || fs.hideRE.MatchString(newpath) {
+			// do not leak any information, just pretend
+			// it doesnt exist
+			return os.ErrNotExist
+		}
 	}
 
 	if !fs.permissions.Allowed(acl.PermissionScopeRename, oldpath, user) {
@@ -252,6 +276,14 @@ func (fs *Filesystem) DeleteFile(path string, user *acl.User) error {
 
 		if !owner {
 			return acl.ErrPermissionDenied
+		}
+	}
+
+	if fs.hideRE != nil {
+		if fs.hideRE.MatchString(path) {
+			// do not leak any information, just pretend
+			// it doesnt exist
+			return os.ErrNotExist
 		}
 	}
 
@@ -322,6 +354,14 @@ func (fs *Filesystem) ListDir(path string, user *acl.User) (FileList, error) {
 		return nil, acl.ErrPermissionDenied
 	}
 
+	if fs.hideRE != nil {
+		if fs.hideRE.MatchString(path) {
+			// do not leak any information, just pretend
+			// it doesnt exist
+			return nil, os.ErrNotExist
+		}
+	}
+
 	files, err := fs.chroot.ReadDir(path)
 	if err != nil {
 		return nil, err
@@ -331,10 +371,25 @@ func (fs *Filesystem) ListDir(path string, user *acl.User) (FileList, error) {
 
 	for _, f := range files {
 		fullpath := filepath.Join(path, f.Name())
+
+		if fs.hideRE != nil {
+			if fs.hideRE.MatchString(fullpath) {
+				continue
+			}
+		}
+
 		username, group, err := fs.shadow.Get(fullpath)
 		if err != nil {
-			username = "root"
-			group = "root"
+			username = fs.DefaultUser
+			group = fs.DefaultGroup
+		}
+
+		// check if we have permission to see user and group, as it's hide, permissions are reversed
+		if fs.permissions.Allowed(acl.PermissionScopeHideUser, fullpath, user) {
+			username = fs.DefaultUser
+		}
+		if fs.permissions.Allowed(acl.PermissionScopeHideGroup, fullpath, user) {
+			group = fs.DefaultGroup
 		}
 
 		results = append(results, FileInfo{

@@ -162,7 +162,7 @@ func (s *Session) ReplyWithArgs(st cmd.Status, args ...interface{}) error {
 // ReplyError replies with the default message for a status code
 // but takes args
 func (s *Session) ReplyError(st cmd.Status, err error) error {
-	return s.reply(st.Code, fmt.Sprintf("%s: %s", st.Message, err.Error()))
+	return s.reply(st.Code, fmt.Sprintf("%s (%s)", st.Message, err.Error()))
 }
 
 // ReplyWithMessage replies with custom message
