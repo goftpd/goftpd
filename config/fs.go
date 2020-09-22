@@ -1,6 +1,8 @@
 package config
 
 import (
+	"regexp"
+
 	"github.com/dgraph-io/badger/v2"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/goftpd/goftpd/vfs"
@@ -8,10 +10,7 @@ import (
 )
 
 func (c *Config) ParseFS() (vfs.VFS, error) {
-	opts := struct {
-		Root     string `goftpd:"rootpath"`
-		ShadowDB string `goftpd:"shadow_db"`
-	}{}
+	var opts vfs.FilesystemOpts
 
 	lines, ok := c.lines[NamespaceFS]
 	if !ok {
@@ -30,6 +29,14 @@ func (c *Config) ParseFS() (vfs.VFS, error) {
 		opts.ShadowDB = "shadow.db"
 	}
 
+	if len(opts.Hide) > 0 {
+		re, err := regexp.Compile(opts.Hide)
+		if err != nil {
+			return nil, errors.WithMessage(err, `"fs hide" regexp is bad`)
+		}
+		opts.SetHideRE(re)
+	}
+
 	ufs := osfs.New(opts.Root)
 
 	opt := badger.DefaultOptions(opts.ShadowDB)
@@ -46,7 +53,7 @@ func (c *Config) ParseFS() (vfs.VFS, error) {
 		return nil, err
 	}
 
-	fs, err := vfs.NewFilesystem(ufs, shadowFS, perms)
+	fs, err := vfs.NewFilesystem(&opts, ufs, shadowFS, perms)
 	if err != nil {
 		return nil, err
 	}

@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
@@ -32,7 +33,19 @@ type VFS interface {
 	ListDir(string, *acl.User) (FileList, error)
 }
 
+type FilesystemOpts struct {
+	Root         string `goftpd:"rootpath"`
+	ShadowDB     string `goftpd:"shadow_db"`
+	DefaultUser  string `goftpd:"default_user"`
+	DefaultGroup string `goftpd:"default_group"`
+	Hide         string `goftpd:"hide"`
+	hideRE       *regexp.Regexp
+}
+
+func (f *FilesystemOpts) SetHideRE(r *regexp.Regexp) { f.hideRE = r }
+
 type Filesystem struct {
+	*FilesystemOpts
 	chroot      billy.Filesystem
 	shadow      Shadow
 	permissions *acl.Permissions
@@ -40,11 +53,12 @@ type Filesystem struct {
 
 // NewFilesystem creates a new Filesystem with the given chroot (underlying fs) shadow (stores user/group meta data
 // and permissions (check acl for paths, users and different scopes)
-func NewFilesystem(chroot billy.Filesystem, shadow Shadow, permissions *acl.Permissions) (*Filesystem, error) {
+func NewFilesystem(opts *FilesystemOpts, chroot billy.Filesystem, shadow Shadow, permissions *acl.Permissions) (*Filesystem, error) {
 	fs := Filesystem{
-		chroot:      chroot,
-		shadow:      shadow,
-		permissions: permissions,
+		FilesystemOpts: opts,
+		chroot:         chroot,
+		shadow:         shadow,
+		permissions:    permissions,
 	}
 
 	return &fs, nil
