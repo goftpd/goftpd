@@ -13,7 +13,7 @@ A working config:
 # you can set variables that will be reused in the script, there are some
 # caveats; variables must be preceded by a space, i.e. $var would work, 
 # but !$var would not.
-var admins -user -user2
+var admins -user =admin
 var special =group1 =group2
 
 # acl settings
@@ -24,25 +24,36 @@ var special =group1 =group2
 # ? matches any single non-Separator character
 # [cHaRs] matches any range of charecters in "cHaRs"
 
+# permissions always default to false, matches are always from largest to smallest
+# in terms of pattern length, and first pattern to match wins, no more are
+# checked. this means that there is no need to append '!*' to rules
+
 # acl download also includes the ability to list
-acl download 	/** 		*
-acl upload 		/** 		*
-acl resume 		/** 		*
-acl resumeown	/** 		*
-acl delete		/** 		*
-acl deleteown	/** 		*
+acl download 	/**		*
+acl upload 		/**		*
+acl resume 		/**		*
+acl resumeown	/**		*
+acl delete		/**		*
+acl deleteown	/**		*
 acl resume		/**		*
 acl resumeown	/**		*
-acl makedir		/**		*
 acl show_user 	/**		*
 acl show_group	/**		*
-acl show_user 	/private/** $admins $special !*
-acl show_group	/private/** $admins $special !*
+
+acl show_user 	/requests/** $admins
+acl show_group	/requests/** $admins
+
+# special makedir rules
+acl makedir		/mp3/????-??-??/*/*		*
+acl makedir 	/mp3/* $admins
+
+# an example of an admin setup
+acl private /admin $admins
+acl private /admin/** $admins
 
 # an example pre setup
-acl download /pre $special !*
-acl upload /pre $special !*
-acl makedir /pre $special !*
+acl private /groups $admins $special
+acl private /groups/** $admins $special
 
 # server settings
 # ---------------
