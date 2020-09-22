@@ -47,6 +47,27 @@ fs default_group	ohhai
 fs hide (?i)\.(message)$
 ```
 
+## To Run
+Make sure you have Go installed (https://golang.org/dl/). Download this repo,
+i.e. with git:
+
+`git clone https://github.com/goftpd/goftpd.git`
+
+or wget:
+
+`wget https://github.com/goftpd/goftpd/archive/master.zip && unzip master`
+
+If you don't want to edit the conf, then:
+
+`mkdir site/data`
+
+Then run it:
+
+`go run main.go run -c site/goftpd.conf`
+
+Congratulations, you are now a hacker.
+
+
 ## Ramblings
 The core will implement the FTP RFC with pluggable Auth and Filesystem
 components. This means that in the future, if someone were crazy, they could
