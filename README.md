@@ -8,20 +8,41 @@ more extendable.
 A working config:
 
 ```
+# variables
+# ---------
+# you can set variables that will be reused in the script, there are some
+# caveats; variables must be preceded by a space, i.e. $var would work, 
+# but !$var would not.
+var admins -user -user2
+var special =group1 =group2
+
 # acl settings
 # ------------
-acl download 	/ 		*
-acl upload 		/ 		*
-acl resume 		/ 		*
-acl resumeown	/ 		*
-acl delete		/ 		*
-acl deleteown	/ 		*
-acl resume		/		*
-acl resumeown	/		*
-acl makedir		/		*
-acl list 		/		*
-acl hideuser 	/		!-admin *
-acl hidegroup	/		!-admin *
+# the glob syntax is:
+# * matches matches any sequence of non-Separator characters
+# ** matches any sequence of characters, including Seperator
+# ? matches any single non-Separator character
+# [cHaRs] matches any range of charecters in "cHaRs"
+
+# acl download also includes the ability to list
+acl download 	/** 		*
+acl upload 		/** 		*
+acl resume 		/** 		*
+acl resumeown	/** 		*
+acl delete		/** 		*
+acl deleteown	/** 		*
+acl resume		/**		*
+acl resumeown	/**		*
+acl makedir		/**		*
+acl show_user 	/**		*
+acl show_group	/**		*
+acl show_user 	/private/** $admins $special !*
+acl show_group	/private/** $admins $special !*
+
+# an example pre setup
+acl download /pre $special !*
+acl upload /pre $special !*
+acl makedir /pre $special !*
 
 # server settings
 # ---------------
