@@ -29,18 +29,6 @@ func (c commandRETR) Execute(ctx context.Context, s Session, params []string) er
 		return s.ReplyStatus(StatusCantOpenDataConnection)
 	}
 
-	if s.DataProtected() {
-		if err := s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for download using TLS/SSL."); err != nil {
-			return err
-		}
-	} else {
-		if err := s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for download."); err != nil {
-			return err
-		}
-	}
-	defer s.Data().Close()
-	defer s.ClearData()
-
 	path := s.FS().Join(s.CWD(), params)
 
 	user, ok := s.User()
@@ -52,6 +40,18 @@ func (c commandRETR) Execute(ctx context.Context, s Session, params []string) er
 	if err != nil {
 		return s.ReplyError(StatusActionNotOK, err)
 	}
+
+	if s.DataProtected() {
+		if err := s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for download using TLS/SSL."); err != nil {
+			return err
+		}
+	} else {
+		if err := s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for download."); err != nil {
+			return err
+		}
+	}
+	defer s.Data().Close()
+	defer s.ClearData()
 
 	// reset seek
 	defer s.SetRestartPosition(0)
@@ -67,6 +67,8 @@ func (c commandRETR) Execute(ctx context.Context, s Session, params []string) er
 	if err != nil {
 		return s.ReplyError(StatusActionNotOK, err)
 	}
+
+	s.Data().Close()
 
 	return s.ReplyWithMessage(StatusDataClosedOK, fmt.Sprintf("OK, received %d bytes.", n))
 }

@@ -30,6 +30,13 @@ func (c commandAPPE) Execute(ctx context.Context, s Session, params []string) er
 		return s.ReplyStatus(StatusCantOpenDataConnection)
 	}
 
+	path := s.FS().Join(s.CWD(), params)
+
+	user, ok := s.User()
+	if !ok {
+		return s.ReplyStatus(StatusNotLoggedIn)
+	}
+
 	if s.DataProtected() {
 		if err := s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for upload using TLS/SSL."); err != nil {
 			return err
@@ -42,13 +49,6 @@ func (c commandAPPE) Execute(ctx context.Context, s Session, params []string) er
 	defer s.Data().Close()
 	defer s.ClearData()
 
-	path := s.FS().Join(s.CWD(), params)
-
-	user, ok := s.User()
-	if !ok {
-		return s.ReplyStatus(StatusNotLoggedIn)
-	}
-
 	writer, err := s.FS().ResumeUploadFile(path, user)
 	if err != nil {
 		return s.ReplyError(StatusActionNotOK, err)
@@ -58,6 +58,8 @@ func (c commandAPPE) Execute(ctx context.Context, s Session, params []string) er
 	if err != nil {
 		return s.ReplyError(StatusActionNotOK, err)
 	}
+
+	s.ClearData()
 
 	return s.ReplyWithMessage(StatusDataClosedOK, fmt.Sprintf("OK, received %d bytes.", n))
 }

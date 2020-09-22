@@ -31,18 +31,6 @@ func (c commandSTOR) Execute(ctx context.Context, s Session, params []string) er
 		return s.ReplyStatus(StatusCantOpenDataConnection)
 	}
 
-	if s.DataProtected() {
-		if err := s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for upload using TLS/SSL."); err != nil {
-			return err
-		}
-	} else {
-		if err := s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for upload."); err != nil {
-			return err
-		}
-	}
-	defer s.Data().Close()
-	defer s.ClearData()
-
 	path := s.FS().Join(s.CWD(), params)
 
 	user, ok := s.User()
@@ -55,10 +43,24 @@ func (c commandSTOR) Execute(ctx context.Context, s Session, params []string) er
 		return s.ReplyError(StatusActionNotOK, err)
 	}
 
+	if s.DataProtected() {
+		if err := s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for upload using TLS/SSL."); err != nil {
+			return err
+		}
+	} else {
+		if err := s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for upload."); err != nil {
+			return err
+		}
+	}
+	defer s.Data().Close()
+	defer s.ClearData()
+
 	n, err := io.Copy(writer, s.Data())
 	if err != nil {
 		return s.ReplyError(StatusActionNotOK, err)
 	}
+
+	s.Data().Close()
 
 	return s.ReplyWithMessage(StatusDataClosedOK, fmt.Sprintf("OK, received %d bytes.", n))
 }

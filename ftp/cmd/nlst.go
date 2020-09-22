@@ -35,18 +35,6 @@ func (c commandNLST) Execute(ctx context.Context, s Session, params []string) er
 		return s.ReplyStatus(StatusCantOpenDataConnection)
 	}
 
-	if s.DataProtected() {
-		if err := s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for directory listing using TLS/SSL."); err != nil {
-			return err
-		}
-	} else {
-		if err := s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for directory listing."); err != nil {
-			return err
-		}
-	}
-	defer s.Data().Close()
-	defer s.ClearData()
-
 	user, ok := s.User()
 	if !ok {
 		return s.ReplyStatus(StatusNotLoggedIn)
@@ -77,11 +65,25 @@ func (c commandNLST) Execute(ctx context.Context, s Session, params []string) er
 		finfo.SortByName()
 	}
 
+	if s.DataProtected() {
+		if err := s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for directory listing using TLS/SSL."); err != nil {
+			return err
+		}
+	} else {
+		if err := s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for directory listing."); err != nil {
+			return err
+		}
+	}
+	defer s.Data().Close()
+	defer s.ClearData()
+
 	// write it
 	n, err := s.Data().Write(finfo.Short())
 	if err != nil {
 		return s.ReplyError(StatusActionAbortedError, err)
 	}
+
+	s.Data().Close()
 
 	s.ReplyWithMessage(StatusDataClosedOK, fmt.Sprintf("Closing data connection, sent %d bytes", n))
 
