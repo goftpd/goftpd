@@ -13,10 +13,15 @@ A working config:
 acl download 	/ 		*
 acl upload 		/ 		*
 acl resume 		/ 		*
+acl resumeown	/ 		*
+acl delete		/ 		*
+acl deleteown	/ 		*
+acl resume		/		*
+acl resumeown	/		*
+acl makedir		/		*
+acl list 		/		*
 acl hideuser 	/		!-admin *
 acl hidegroup	/		!-admin *
-acl list 		/		*
-acl makedir		/		*
 
 # server settings
 # ---------------
