@@ -98,6 +98,10 @@ If you don't want to edit the conf, then:
 
 `mkdir site/data`
 
+Create some self signed certs (feature to autogen this will be added):
+
+`openssl req -x509 -newkey rsa:4096 -keyout site/key.pem -out site/cert.pem -days 365 -nodes`
+
 Then run it:
 
 `go run main.go run -c site/goftpd.conf`
