@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/gobwas/glob"
 	"github.com/pkg/errors"
 )
 
@@ -18,6 +19,7 @@ func TestNewRule(t *testing.T) {
 			Rule{
 				"/path/test/dir",
 				PermissionScopeDownload,
+				glob.MustCompile("/path/test/dir"),
 				&ACL{
 					collection{false, []string{"user"}, nil},
 					collection{true, nil, nil},
@@ -30,6 +32,7 @@ func TestNewRule(t *testing.T) {
 			Rule{
 				"/path/test/dir",
 				PermissionScopeDownload,
+				glob.MustCompile("/path/test/dir"),
 				&ACL{
 					collection{true, nil, nil},
 					collection{false, []string{"user"}, nil},
@@ -57,6 +60,7 @@ func TestNewRule(t *testing.T) {
 			Rule{
 				"/path/test",
 				PermissionScopeDownload,
+				glob.MustCompile("/path/test"),
 				nil,
 			},
 			errors.New("bad user '*'"),
@@ -103,13 +107,6 @@ func TestNewPermissions(t *testing.T) {
 				"download /dir/b !*",
 			},
 			nil,
-		},
-		{
-			[]string{
-				"download /dir/a *",
-				"download /dir/a !*",
-			},
-			errors.New("path '/dir/a' for scope 'download' already exists"),
 		},
 	}
 
@@ -171,7 +168,7 @@ func TestPermissionsCheck(t *testing.T) {
 			true,
 		},
 		{
-			"download / =group !*",
+			"download /** =group !*",
 			"/dir/a",
 			PermissionScopeDownload,
 			newTestUser("user", "group"),
@@ -207,7 +204,7 @@ func TestPermissionsCheck(t *testing.T) {
 					t.Fatalf("unable to create Permissions: %s", err)
 				}
 
-				allowed := p.Allowed(tt.scope, tt.path, tt.user)
+				allowed := p.Match(tt.scope, tt.path, tt.user)
 				if allowed != tt.expected {
 					t.Errorf("expected %t got %t", tt.expected, allowed)
 				}

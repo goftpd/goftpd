@@ -10,6 +10,8 @@ func newTestUser(name string, groups ...string) *User {
 }
 
 func checkErr(t *testing.T, got, expected error) {
+	t.Helper()
+
 	if got == nil {
 		if expected != nil {
 			t.Fatalf("expected '%s' but got nil", expected)

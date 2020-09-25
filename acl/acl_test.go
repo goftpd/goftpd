@@ -120,7 +120,7 @@ func TestAllowed(t *testing.T) {
 					t.Fatalf("expected nil but got: '%s'", err)
 				}
 
-				if acl.Allowed(tt.user) != tt.expected {
+				if acl.Match(tt.user) != tt.expected {
 					t.Errorf("expected %t but got: %t", tt.expected, !tt.expected)
 				}
 			},

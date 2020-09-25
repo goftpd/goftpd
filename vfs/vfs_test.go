@@ -18,25 +18,25 @@ func TestNewFilesystemMakeDir(t *testing.T) {
 		err  error
 	}{
 		{
-			"makedir / *",
+			"makedir /** *",
 			"/hello",
 			newTestUser("user", "group"),
 			nil,
 		},
 		{
-			"makedir / !*",
+			"makedir /** !*",
 			"/hello",
 			newTestUser("user", "group"),
 			acl.ErrPermissionDenied,
 		},
 		{
-			"makedir / *",
+			"makedir /** *",
 			"/hello/something",
 			newTestUser("user", "group"),
 			errors.New("file does not exist"),
 		},
 		{
-			"makedir / *",
+			"makedir /** *",
 			"/file/something",
 			newTestUser("user", "group"),
 			errors.New("parent is not a directory"),
@@ -78,7 +78,7 @@ func TestNewFilesystemMakeDir(t *testing.T) {
 }
 
 func TestDownloadFile(t *testing.T) {
-	var rule = "download / !-badUser *"
+	var rule = "download /** !-badUser *"
 
 	var tests = []struct {
 		path string
@@ -135,7 +135,7 @@ func TestDownloadFile(t *testing.T) {
 }
 
 func TestUploadFile(t *testing.T) {
-	var rule = "upload / !-badUser *"
+	var rule = "upload /** !-badUser *"
 
 	var tests = []struct {
 		path    string
@@ -217,8 +217,8 @@ func TestResumeUploadFile(t *testing.T) {
 			true,
 			"/file",
 			[]string{
-				"resume / *",
-				"upload / *",
+				"resume /** *",
+				"upload /** *",
 			},
 			"HELLO",
 			newTestUser("user"),
@@ -229,7 +229,7 @@ func TestResumeUploadFile(t *testing.T) {
 			true,
 			"/file",
 			[]string{
-				"resume / *",
+				"resume /** *",
 			},
 			"HELLO",
 			newTestUser("user"),
@@ -240,7 +240,7 @@ func TestResumeUploadFile(t *testing.T) {
 			true,
 			"/file",
 			[]string{
-				"upload / *",
+				"upload /** *",
 			},
 			"HELLO",
 			newTestUser("user"),
@@ -251,9 +251,9 @@ func TestResumeUploadFile(t *testing.T) {
 			true,
 			"/file",
 			[]string{
-				"resume / !*",
-				"resumeown / *",
-				"upload / *",
+				"resume /** !*",
+				"resumeown /** *",
+				"upload /** *",
 			},
 			"HELLO",
 			newTestUser("owner"),
@@ -264,9 +264,9 @@ func TestResumeUploadFile(t *testing.T) {
 			true,
 			"/file",
 			[]string{
-				"resume / !*",
-				"resumeown / *",
-				"upload / *",
+				"resume /** !*",
+				"resumeown /** *",
+				"upload /** *",
 			},
 			"HELLO",
 			newTestUser("owner"),
@@ -277,8 +277,8 @@ func TestResumeUploadFile(t *testing.T) {
 			false,
 			"/file",
 			[]string{
-				"resume / *",
-				"upload / *",
+				"resume /** *",
+				"upload /** *",
 			},
 			"NOTHING TO RESUME",
 			newTestUser("owner"),
@@ -362,8 +362,8 @@ func TestRenameFile(t *testing.T) {
 			"/file",
 			"/file2",
 			[]string{
-				"rename / *",
-				"upload / *",
+				"rename /** *",
+				"upload /** *",
 			},
 			newTestUser("user"),
 			newTestUser("user"),
@@ -374,8 +374,8 @@ func TestRenameFile(t *testing.T) {
 			"/file",
 			"/file2",
 			[]string{
-				"rename / !*",
-				"upload / *",
+				"rename /** !*",
+				"upload /** *",
 			},
 			newTestUser("user"),
 			newTestUser("user"),
@@ -386,8 +386,8 @@ func TestRenameFile(t *testing.T) {
 			"/file",
 			"/file2",
 			[]string{
-				"rename / *",
-				"upload / *",
+				"rename /** *",
+				"upload /** *",
 			},
 			newTestUser("owner"),
 			newTestUser("user"),
@@ -398,9 +398,9 @@ func TestRenameFile(t *testing.T) {
 			"/file",
 			"/file2",
 			[]string{
-				"rename / !*",
-				"renameown / *",
-				"upload / *",
+				"rename /** !*",
+				"renameown /** *",
+				"upload /** *",
 			},
 			newTestUser("user"),
 			newTestUser("user"),
@@ -411,8 +411,8 @@ func TestRenameFile(t *testing.T) {
 			"/file",
 			"/file2",
 			[]string{
-				"rename / *",
-				"upload / *",
+				"rename /** *",
+				"upload /** *",
 			},
 			newTestUser("user"),
 			newTestUser("user"),
@@ -423,8 +423,8 @@ func TestRenameFile(t *testing.T) {
 			"/file",
 			"/file",
 			[]string{
-				"rename / *",
-				"upload / *",
+				"rename /** *",
+				"upload /** *",
 			},
 			newTestUser("user"),
 			newTestUser("user"),
@@ -489,7 +489,7 @@ func TestDeleteFile(t *testing.T) {
 			true,
 			"/file",
 			[]string{
-				"delete / *",
+				"delete /** *",
 			},
 			newTestUser("user"),
 			newTestUser("user"),
@@ -499,7 +499,7 @@ func TestDeleteFile(t *testing.T) {
 			false,
 			"/file",
 			[]string{
-				"delete / *",
+				"delete /** *",
 			},
 			newTestUser("user"),
 			newTestUser("user"),
@@ -509,7 +509,7 @@ func TestDeleteFile(t *testing.T) {
 			true,
 			"/file",
 			[]string{
-				"delete / !*",
+				"delete /** !*",
 			},
 			newTestUser("user"),
 			newTestUser("user"),
@@ -519,8 +519,8 @@ func TestDeleteFile(t *testing.T) {
 			true,
 			"/file",
 			[]string{
-				"delete / !*",
-				"deleteown / *",
+				"delete /** !*",
+				"deleteown /** *",
 			},
 			newTestUser("owner"),
 			newTestUser("user"),
@@ -530,8 +530,8 @@ func TestDeleteFile(t *testing.T) {
 			true,
 			"/file",
 			[]string{
-				"delete / !*",
-				"deleteown / *",
+				"delete /** !*",
+				"deleteown /** *",
 			},
 			newTestUser("owner"),
 			newTestUser("owner"),
@@ -572,7 +572,7 @@ func TestDeleteFile(t *testing.T) {
 func TestListDirSortByName(t *testing.T) {
 	owner := newTestUser("user", "group")
 	rules := []string{
-		"list / *",
+		"download /** *",
 	}
 
 	// potential to create random fails, but lets see
@@ -620,7 +620,7 @@ func TestListDirSortByName(t *testing.T) {
 func TestListDirNoPermission(t *testing.T) {
 	owner := newTestUser("user", "group")
 	rules := []string{
-		"list / !*",
+		"download /** !*",
 	}
 
 	fs := newMemoryFilesystem(t, rules)

@@ -11,7 +11,10 @@ import (
 )
 
 func newMemoryShadowStore(t *testing.T) Shadow {
+	t.Helper()
+
 	opt := badger.DefaultOptions("").WithInMemory(true)
+	opt.Logger = nil
 
 	db, err := badger.Open(opt)
 	if err != nil {
@@ -24,6 +27,7 @@ func newMemoryShadowStore(t *testing.T) Shadow {
 }
 
 func closeMemoryShadowStore(t *testing.T, ss Shadow) {
+	t.Helper()
 	if err := ss.Close(); err != nil {
 		t.Fatalf("error closing shadow: %s", err)
 	}
@@ -35,6 +39,8 @@ func newTestUser(name string, groups ...string) *acl.User {
 }
 
 func checkErr(t *testing.T, got, expected error) {
+	t.Helper()
+
 	if got == nil {
 		if expected != nil {
 			t.Fatalf("expected '%s' but got nil", expected)
@@ -50,6 +56,8 @@ func checkErr(t *testing.T, got, expected error) {
 }
 
 func createFile(t *testing.T, fs *Filesystem, path, contents string) {
+	t.Helper()
+
 	f, err := fs.chroot.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0666)
 	if err != nil {
 		t.Fatalf("unexpected err creating %s: %s", path, err)
@@ -63,12 +71,16 @@ func createFile(t *testing.T, fs *Filesystem, path, contents string) {
 }
 
 func setShadowOwner(t *testing.T, fs *Filesystem, path string, owner *acl.User) {
+	t.Helper()
+
 	if err := fs.shadow.Set(path, owner.Name(), owner.PrimaryGroup()); err != nil {
 		t.Fatalf("unexpected err setting shadow owner: %s", err)
 	}
 }
 
 func newMemoryFilesystem(t *testing.T, lines []string) *Filesystem {
+	t.Helper()
+
 	memory := memfs.New()
 
 	if err := memory.MkdirAll("/", defaultPerms); err != nil {
@@ -91,7 +103,12 @@ func newMemoryFilesystem(t *testing.T, lines []string) *Filesystem {
 		t.Fatalf("unexpected error creating Permissions: %s", err)
 	}
 
-	fs, err := NewFilesystem(memory, ss, perms)
+	opts := FilesystemOpts{
+		DefaultUser:  "nobody",
+		DefaultGroup: "nogroup",
+	}
+
+	fs, err := NewFilesystem(&opts, memory, ss, perms)
 	if err != nil {
 		t.Fatalf("unexpected error creating NewFilesystem: %s", err)
 	}
@@ -100,6 +117,8 @@ func newMemoryFilesystem(t *testing.T, lines []string) *Filesystem {
 }
 
 func stopMemoryFilesystem(t *testing.T, fs *Filesystem) {
+	t.Helper()
+
 	err := fs.Stop()
 	if err != nil {
 		t.Fatalf("unexpected error stopping filesystem: %s", err)
