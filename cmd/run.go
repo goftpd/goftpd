@@ -32,7 +32,13 @@ func init() {
 			}
 			defer fs.Stop()
 
-			server, err := ftp.NewServer(serverOpts, fs)
+			// get auth
+			auth, err := cfg.ParseAuthenticator()
+			if err != nil {
+				return err
+			}
+
+			server, err := ftp.NewServer(serverOpts, fs, auth)
 			if err != nil {
 				return err
 			}

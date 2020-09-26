@@ -34,7 +34,13 @@ func (c commandPASS) Execute(ctx context.Context, s Session, params []string) er
 		return s.ReplyStatus(StatusBadCommandSequence)
 	}
 
+	if !s.Auth().CheckPassword(s.Login(), params[0]) {
+		s.SetLogin("")
+		return s.ReplyStatus(StatusNotLoggedIn)
+	}
+
 	if err := s.ReplyWithArgs(StatusUserLoggedIn, fmt.Sprintf("Welcome back %s!", s.Login())); err != nil {
+		s.SetLogin("")
 		return err
 	}
 

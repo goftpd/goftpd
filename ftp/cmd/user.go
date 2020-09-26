@@ -33,6 +33,8 @@ func (c commandUSER) Execute(ctx context.Context, s Session, params []string) er
 		return s.ReplyStatus(StatusSyntaxError)
 	}
 
+	s.SetLogin("")
+
 	if err := s.ReplyStatus(StatusNeedPassword); err != nil {
 		return err
 	}

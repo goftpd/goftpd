@@ -103,7 +103,8 @@ func (s *Session) NewActiveDataConn(ctx context.Context, params string) error {
 	return nil
 }
 
-func (s *Session) FS() vfs.VFS { return s.server.fs }
+func (s *Session) FS() vfs.VFS             { return s.server.fs }
+func (s *Session) Auth() acl.Authenticator { return s.server.auth }
 
 func (s *Session) User() (*acl.User, bool) {
 	if len(s.login) > 0 {

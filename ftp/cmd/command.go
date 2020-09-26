@@ -68,6 +68,7 @@ type Session interface {
 
 	// filesystem
 	FS() vfs.VFS
+	Auth() acl.Authenticator
 
 	// data
 	Data() DataConn

@@ -31,7 +31,7 @@ func init() {
 				return err
 			}
 
-			log.Printf("created user '%s'", username)
+			log.Printf("created user '%s'", user.Name)
 
 			return nil
 		},

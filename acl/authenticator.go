@@ -11,8 +11,10 @@ import (
 )
 
 var (
-	ErrUserExists      = errors.New("user exists")
-	ErrUserDoesntExist = errors.New("user does not exist")
+	ErrUserExists       = errors.New("user exists")
+	ErrUserDoesntExist  = errors.New("user does not exist")
+	ErrGroupExists      = errors.New("group exists")
+	ErrGroupDoesntExist = errors.New("group does not exist")
 )
 
 type AuthenticatorOpts struct {
@@ -138,7 +140,25 @@ func (a *BadgerAuthenticator) AddUser(name, pass string) (*User, error) {
 
 // AddGroup creates a Group
 func (a *BadgerAuthenticator) AddGroup(name string) (*Group, error) {
-	return nil, errors.New("stub")
+	// check if we have a user by that name
+	g, err := a.GetGroup(name)
+	if err == nil {
+		return nil, ErrGroupExists
+	}
+
+	if err != ErrGroupDoesntExist {
+		return nil, err
+	}
+
+	g = &Group{}
+
+	g.Name = name
+
+	if err := a.encodeAndUpdate(g); err != nil {
+		return nil, err
+	}
+
+	return g, nil
 }
 
 // GetUser attempts to retrieve a User from the store using the name
@@ -185,8 +205,17 @@ func (a *BadgerAuthenticator) DeleteGroup(name string) error {
 
 // CheckPassword checks to see if the password is the correct one for
 // the user. Any failure (i.e. user doesn't exist) returns false.
-func (a *BadgerAuthenticator) CheckPassword(user, pass string) bool {
-	return false
+func (a *BadgerAuthenticator) CheckPassword(name, pass string) bool {
+	u, err := a.GetUser(name)
+	if err != nil {
+		return false
+	}
+
+	if err := bcrypt.CompareHashAndPassword(u.Password, []byte(pass)); err != nil {
+		return false
+	}
+
+	return true
 }
 
 // ChangePassword changes the password for the User
