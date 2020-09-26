@@ -18,6 +18,7 @@ const (
 	NamespaceServer Namespace = "server"
 	NamespaceACL    Namespace = "acl"
 	NamespaceFS     Namespace = "fs"
+	NamespaceAuth   Namespace = "auth"
 )
 
 var stringToNamespace = map[string]Namespace{
@@ -25,6 +26,7 @@ var stringToNamespace = map[string]Namespace{
 	string(NamespaceACL):    NamespaceACL,
 	string(NamespaceFS):     NamespaceFS,
 	string(NamespaceVar):    NamespaceVar,
+	string(NamespaceAuth):   NamespaceAuth,
 }
 
 type Line struct {

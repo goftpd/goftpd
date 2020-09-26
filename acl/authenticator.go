@@ -15,14 +15,14 @@ var (
 	ErrUserDoesntExist = errors.New("user does not exist")
 )
 
-var (
-	bcryptHashCost = 20
-)
+type AuthenticatorOpts struct {
+	DB string `goftpd:"db"`
+}
 
 type Authenticator interface {
 	// create
 	AddUser(string, string) (*User, error)
-	AddGroup(string) error
+	AddGroup(string) (*Group, error)
 
 	// get
 	GetUser(string) (*User, error)
@@ -41,6 +41,7 @@ type Authenticator interface {
 	ChangePassword(string, string) error
 }
 
+// Entry describes an Authenticator Entry
 type Entry interface {
 	Key() []byte
 }
@@ -51,6 +52,8 @@ type BadgerAuthenticator struct {
 	bufferPool sync.Pool
 }
 
+// NewBadgerAuthenticator takes in options and a badger DB and returns a new BadgerAuthenticator
+// which implements the Authenticator interface
 func NewBadgerAuthenticator(db *badger.DB) *BadgerAuthenticator {
 	return &BadgerAuthenticator{
 		db: db,
@@ -116,10 +119,12 @@ func (a *BadgerAuthenticator) AddUser(name, pass string) (*User, error) {
 	}
 
 	// hash password
-	hashed, err := bcrypt.GenerateFromPassword([]byte(pass), bcryptHashCost)
+	hashed, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
 	}
+
+	u = &User{}
 
 	u.Name = name
 	u.Password = hashed

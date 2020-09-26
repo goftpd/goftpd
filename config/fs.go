@@ -40,6 +40,8 @@ func (c *Config) ParseFS() (vfs.VFS, error) {
 	ufs := osfs.New(opts.Root)
 
 	opt := badger.DefaultOptions(opts.ShadowDB)
+	// disable badger logger
+	opt.Logger = nil
 
 	db, err := badger.Open(opt)
 	if err != nil {
