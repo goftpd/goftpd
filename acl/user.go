@@ -1,6 +1,10 @@
 package acl
 
-import "time"
+import (
+	"fmt"
+	"strings"
+	"time"
+)
 
 type User struct {
 	Name     string
@@ -29,10 +33,25 @@ type User struct {
 	IPs map[string]time.Time
 }
 
+// Used to satisfy the authenticator Entry interface
+func (u User) Key() []byte {
+	return []byte(fmt.Sprintf(
+		"users:%s",
+		strings.ToLower(u.Name),
+	))
+}
+
 type Group struct {
 	Name string
 
 	AddedAt time.Time
+}
+
+func (g Group) Key() []byte {
+	return []byte(fmt.Sprintf(
+		"groups:%s",
+		strings.ToLower(g.Name),
+	))
 }
 
 type GroupSettings struct {
