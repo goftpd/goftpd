@@ -3,10 +3,20 @@ package acl
 import "testing"
 
 func newTestUser(name string, groups ...string) *User {
-	return &User{
-		name:   name,
-		groups: groups,
+	u := &User{
+		Name: name,
 	}
+
+	if len(groups) > 0 {
+		u.PrimaryGroup = groups[0]
+		u.Groups = make(map[string]GroupSettings, 0)
+	}
+
+	for _, g := range groups {
+		u.Groups[g] = GroupSettings{}
+	}
+
+	return u
 }
 
 func checkErr(t *testing.T, got, expected error) {

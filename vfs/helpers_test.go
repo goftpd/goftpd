@@ -34,8 +34,20 @@ func closeMemoryShadowStore(t *testing.T, ss Shadow) {
 }
 
 func newTestUser(name string, groups ...string) *acl.User {
-	u := acl.NewUser(name, groups)
-	return &u
+	u := &acl.User{
+		Name: name,
+	}
+
+	if len(groups) > 0 {
+		u.PrimaryGroup = groups[0]
+		u.Groups = make(map[string]acl.GroupSettings, 0)
+	}
+
+	for _, g := range groups {
+		u.Groups[g] = acl.GroupSettings{}
+	}
+
+	return u
 }
 
 func checkErr(t *testing.T, got, expected error) {
@@ -73,7 +85,7 @@ func createFile(t *testing.T, fs *Filesystem, path, contents string) {
 func setShadowOwner(t *testing.T, fs *Filesystem, path string, owner *acl.User) {
 	t.Helper()
 
-	if err := fs.shadow.Set(path, owner.Name(), owner.PrimaryGroup()); err != nil {
+	if err := fs.shadow.Set(path, owner.Name, owner.PrimaryGroup); err != nil {
 		t.Fatalf("unexpected err setting shadow owner: %s", err)
 	}
 }

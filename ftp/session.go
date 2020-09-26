@@ -107,7 +107,9 @@ func (s *Session) FS() vfs.VFS { return s.server.fs }
 
 func (s *Session) User() (*acl.User, bool) {
 	if len(s.login) > 0 {
-		user := acl.NewUser(s.login, []string{s.login})
+		user := acl.User{
+			Name: s.login,
+		}
 		return &user, true
 	}
 	return nil, false

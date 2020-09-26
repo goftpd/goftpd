@@ -112,7 +112,7 @@ func (fs *Filesystem) MakeDir(path string, user *acl.User) error {
 		return err
 	}
 
-	if err := fs.shadow.Set(path, user.Name(), user.PrimaryGroup()); err != nil {
+	if err := fs.shadow.Set(path, user.Name, user.PrimaryGroup); err != nil {
 		return err
 	}
 
@@ -167,7 +167,7 @@ func (fs *Filesystem) UploadFile(path string, user *acl.User) (io.WriteCloser, e
 
 	// wrap the file in our special Writer that allows us to manage the shadow fs
 	writer := newWriteCloser(f, func() error {
-		return fs.shadow.Set(path, user.Name(), user.PrimaryGroup())
+		return fs.shadow.Set(path, user.Name, user.PrimaryGroup)
 	})
 
 	return writer, nil
@@ -221,7 +221,7 @@ func (fs *Filesystem) ResumeUploadFile(path string, user *acl.User) (io.WriteClo
 
 	// wrap the file in our special Writer that allows us to manage the shadow fs
 	writer := newWriteCloser(f, func() error {
-		return fs.shadow.Set(path, user.Name(), user.PrimaryGroup())
+		return fs.shadow.Set(path, user.Name, user.PrimaryGroup)
 	})
 
 	return writer, nil
@@ -280,7 +280,7 @@ func (fs *Filesystem) RenameFile(oldpath, newpath string, user *acl.User) error 
 		return err
 	}
 
-	if err := fs.shadow.Set(newpath, user.Name(), user.PrimaryGroup()); err != nil {
+	if err := fs.shadow.Set(newpath, user.Name, user.PrimaryGroup); err != nil {
 		return err
 	}
 
@@ -458,7 +458,7 @@ func (fs *Filesystem) checkOwnership(path string, user *acl.User) (bool, error) 
 		return false, err
 	}
 
-	if username != strings.ToLower(user.Name()) {
+	if username != strings.ToLower(user.Name) {
 		return false, nil
 	}
 

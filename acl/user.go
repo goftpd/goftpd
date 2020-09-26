@@ -1,26 +1,41 @@
 package acl
 
+import "time"
+
 type User struct {
-	name   string
-	groups []string
-}
+	Name     string
+	Password []byte
 
-func (u User) Name() string { return u.name }
-func (u User) PrimaryGroup() string {
-	if len(u.groups) == 0 {
-		return "nobody"
-	}
-	return u.groups[0]
-}
-func (u User) Groups() []string { return u.groups }
+	// group related attributes
+	PrimaryGroup string
+	Groups       map[string]GroupSettings
 
-func NewUser(name string, groups []string) User {
-	return User{
-		name:   name,
-		groups: groups,
-	}
+	// bytes available for download
+	Credits int
+
+	// login based attributes
+	Logins    int
+	Uploads   int
+	Downloads int
+
+	// meta
+	CreatedAt   time.Time
+	LastLoginAt time.Time
+	DeletedAt   time.Time
+
+	// map of ident@ip matches against the time they were added
+	// potential to add TTL on ips here, or for maintenace (clean
+	// all ips older than x)
+	IPs map[string]time.Time
 }
 
 type Group struct {
-	name string
+	Name string
+
+	AddedAt time.Time
+}
+
+type GroupSettings struct {
+	IsAdmin bool
+	AddedAt time.Time
 }

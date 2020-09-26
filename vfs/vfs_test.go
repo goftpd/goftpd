@@ -64,12 +64,12 @@ func TestNewFilesystemMakeDir(t *testing.T) {
 						t.Fatalf("expected nil but got '%s' for shadow.Get", err)
 					}
 
-					if username != tt.user.Name() {
-						t.Errorf("expected shadow to be '%s' but got '%s'", tt.user.Name(), username)
+					if username != tt.user.Name {
+						t.Errorf("expected shadow to be '%s' but got '%s'", tt.user.Name, username)
 					}
 
-					if group != tt.user.PrimaryGroup() {
-						t.Errorf("expected shadow to be '%s' but got '%s'", tt.user.PrimaryGroup(), group)
+					if group != tt.user.PrimaryGroup {
+						t.Errorf("expected shadow to be '%s' but got '%s'", tt.user.PrimaryGroup, group)
 					}
 				}
 			},
@@ -148,14 +148,14 @@ func TestUploadFile(t *testing.T) {
 			"/file",
 			false,
 			"HELLO",
-			newTestUser("user"),
+			newTestUser("user", "nobody"),
 			nil,
 		},
 		{
 			"/file",
 			true,
 			"HELLO",
-			newTestUser("user"),
+			newTestUser("user", "nobody"),
 			errors.New("file already exists"),
 		},
 	}
@@ -190,8 +190,8 @@ func TestUploadFile(t *testing.T) {
 						t.Fatalf("unexpected err in shadow.Get: %s", err)
 					}
 
-					if username != tt.user.Name() {
-						t.Errorf("expected username to be '%s' got: '%s'", tt.user.Name(), username)
+					if username != tt.user.Name {
+						t.Errorf("expected username to be '%s' got: '%s'", tt.user.Name, username)
 					}
 
 					if group != "nobody" {
@@ -221,8 +221,8 @@ func TestResumeUploadFile(t *testing.T) {
 				"upload /** *",
 			},
 			"HELLO",
-			newTestUser("user"),
-			newTestUser("user"),
+			newTestUser("user", "nobody"),
+			newTestUser("user", "nobody"),
 			nil,
 		},
 		{
@@ -232,8 +232,8 @@ func TestResumeUploadFile(t *testing.T) {
 				"resume /** *",
 			},
 			"HELLO",
-			newTestUser("user"),
-			newTestUser("user"),
+			newTestUser("user", "nobody"),
+			newTestUser("user", "nobody"),
 			acl.ErrPermissionDenied,
 		},
 		{
@@ -243,21 +243,8 @@ func TestResumeUploadFile(t *testing.T) {
 				"upload /** *",
 			},
 			"HELLO",
-			newTestUser("user"),
-			newTestUser("user"),
-			acl.ErrPermissionDenied,
-		},
-		{
-			true,
-			"/file",
-			[]string{
-				"resume /** !*",
-				"resumeown /** *",
-				"upload /** *",
-			},
-			"HELLO",
-			newTestUser("owner"),
-			newTestUser("user"),
+			newTestUser("user", "nobody"),
+			newTestUser("user", "nobody"),
 			acl.ErrPermissionDenied,
 		},
 		{
@@ -269,8 +256,21 @@ func TestResumeUploadFile(t *testing.T) {
 				"upload /** *",
 			},
 			"HELLO",
-			newTestUser("owner"),
-			newTestUser("owner"),
+			newTestUser("owner", "nobody"),
+			newTestUser("user", "nobody"),
+			acl.ErrPermissionDenied,
+		},
+		{
+			true,
+			"/file",
+			[]string{
+				"resume /** !*",
+				"resumeown /** *",
+				"upload /** *",
+			},
+			"HELLO",
+			newTestUser("owner", "nobody"),
+			newTestUser("owner", "nobody"),
 			nil,
 		},
 		{
@@ -281,8 +281,8 @@ func TestResumeUploadFile(t *testing.T) {
 				"upload /** *",
 			},
 			"NOTHING TO RESUME",
-			newTestUser("owner"),
-			newTestUser("owner"),
+			newTestUser("owner", "nobody"),
+			newTestUser("owner", "nobody"),
 			errors.New("file does not exist"),
 		},
 	}
@@ -319,8 +319,8 @@ func TestResumeUploadFile(t *testing.T) {
 						t.Fatalf("unexpected err in shadow.Get: %s", err)
 					}
 
-					if username != tt.user.Name() {
-						t.Errorf("expected username to be '%s' got: '%s'", tt.user.Name(), username)
+					if username != tt.user.Name {
+						t.Errorf("expected username to be '%s' got: '%s'", tt.user.Name, username)
 					}
 
 					if group != "nobody" {
@@ -365,8 +365,8 @@ func TestRenameFile(t *testing.T) {
 				"rename /** *",
 				"upload /** *",
 			},
-			newTestUser("user"),
-			newTestUser("user"),
+			newTestUser("user", "nobody"),
+			newTestUser("user", "nobody"),
 			nil,
 		},
 		{
@@ -377,8 +377,8 @@ func TestRenameFile(t *testing.T) {
 				"rename /** !*",
 				"upload /** *",
 			},
-			newTestUser("user"),
-			newTestUser("user"),
+			newTestUser("user", "nobody"),
+			newTestUser("user", "nobody"),
 			acl.ErrPermissionDenied,
 		},
 		{
@@ -389,8 +389,8 @@ func TestRenameFile(t *testing.T) {
 				"rename /** *",
 				"upload /** *",
 			},
-			newTestUser("owner"),
-			newTestUser("user"),
+			newTestUser("owner", "nobody"),
+			newTestUser("user", "nobody"),
 			nil,
 		},
 		{
@@ -402,8 +402,8 @@ func TestRenameFile(t *testing.T) {
 				"renameown /** *",
 				"upload /** *",
 			},
-			newTestUser("user"),
-			newTestUser("user"),
+			newTestUser("user", "nobody"),
+			newTestUser("user", "nobody"),
 			nil,
 		},
 		{
@@ -414,8 +414,8 @@ func TestRenameFile(t *testing.T) {
 				"rename /** *",
 				"upload /** *",
 			},
-			newTestUser("user"),
-			newTestUser("user"),
+			newTestUser("user", "nobody"),
+			newTestUser("user", "nobody"),
 			errors.New("file does not exist"),
 		},
 		{
@@ -426,8 +426,8 @@ func TestRenameFile(t *testing.T) {
 				"rename /** *",
 				"upload /** *",
 			},
-			newTestUser("user"),
-			newTestUser("user"),
+			newTestUser("user", "nobody"),
+			newTestUser("user", "nobody"),
 			errors.New("can not rename to self"),
 		},
 	}
@@ -463,8 +463,8 @@ func TestRenameFile(t *testing.T) {
 						t.Fatalf("unexpected err in shadow.Get: %s", err)
 					}
 
-					if username != tt.user.Name() {
-						t.Errorf("expected username to be '%s' got: '%s'", tt.user.Name(), username)
+					if username != tt.user.Name {
+						t.Errorf("expected username to be '%s' got: '%s'", tt.user.Name, username)
 					}
 
 					if group != "nobody" {
@@ -491,8 +491,8 @@ func TestDeleteFile(t *testing.T) {
 			[]string{
 				"delete /** *",
 			},
-			newTestUser("user"),
-			newTestUser("user"),
+			newTestUser("user", "nobody"),
+			newTestUser("user", "nobody"),
 			nil,
 		},
 		{
@@ -501,8 +501,8 @@ func TestDeleteFile(t *testing.T) {
 			[]string{
 				"delete /** *",
 			},
-			newTestUser("user"),
-			newTestUser("user"),
+			newTestUser("user", "nobody"),
+			newTestUser("user", "nobody"),
 			errors.New("file does not exist"),
 		},
 		{
@@ -511,8 +511,8 @@ func TestDeleteFile(t *testing.T) {
 			[]string{
 				"delete /** !*",
 			},
-			newTestUser("user"),
-			newTestUser("user"),
+			newTestUser("user", "nobody"),
+			newTestUser("user", "nobody"),
 			acl.ErrPermissionDenied,
 		},
 		{
@@ -522,8 +522,8 @@ func TestDeleteFile(t *testing.T) {
 				"delete /** !*",
 				"deleteown /** *",
 			},
-			newTestUser("owner"),
-			newTestUser("user"),
+			newTestUser("owner", "nobody"),
+			newTestUser("user", "nobody"),
 			acl.ErrPermissionDenied,
 		},
 		{
@@ -533,8 +533,8 @@ func TestDeleteFile(t *testing.T) {
 				"delete /** !*",
 				"deleteown /** *",
 			},
-			newTestUser("owner"),
-			newTestUser("owner"),
+			newTestUser("owner", "nobody"),
+			newTestUser("owner", "nobody"),
 			nil,
 		},
 	}

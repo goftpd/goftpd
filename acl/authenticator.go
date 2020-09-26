@@ -34,6 +34,7 @@ type BadgerAuthenticator struct {
 
 // AddUser creates a user setting the password
 func (a *BadgerAuthenticator) AddUser(name, pass string) (*User, error) {
+
 	return nil, errors.New("stub")
 }
 

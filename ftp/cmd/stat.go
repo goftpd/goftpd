@@ -110,7 +110,7 @@ func (c commandSTAT) NoParams(s Session) error {
 		protection = "Protected"
 	}
 
-	msg := fmt.Sprintf(statBaseMessage, user.Name(), dataType, protection, dataMessage)
+	msg := fmt.Sprintf(statBaseMessage, user.Name, dataType, protection, dataMessage)
 
 	return s.ReplyWithMessage(StatusSystemStatus, msg)
 }

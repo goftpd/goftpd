@@ -151,24 +151,23 @@ func (c *collection) hasGroup(g string) bool {
 // block access
 func (a *ACL) Match(u *User) bool {
 	// check blocked lists
-	if a.blocked.hasUser(u.Name()) {
+	if a.blocked.hasUser(u.Name) {
 		return false
 	}
 
-	groups := u.Groups()
-	for idx := range groups {
-		if a.blocked.hasGroup(groups[idx]) {
+	for group := range u.Groups {
+		if a.blocked.hasGroup(group) {
 			return false
 		}
 	}
 
 	// check allowed lists
-	if a.allowed.hasUser(u.Name()) {
+	if a.allowed.hasUser(u.Name) {
 		return true
 	}
 
-	for idx := range groups {
-		if a.allowed.hasGroup(groups[idx]) {
+	for group := range u.Groups {
+		if a.allowed.hasGroup(group) {
 			return true
 		}
 	}
