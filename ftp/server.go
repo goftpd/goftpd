@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/goftpd/goftpd/acl"
+	"github.com/goftpd/goftpd/script"
 	"github.com/goftpd/goftpd/vfs"
 	"golang.org/x/sync/errgroup"
 )
@@ -39,6 +40,8 @@ type Server struct {
 
 	auth acl.Authenticator
 
+	se script.Engine
+
 	sessionPool sync.Pool
 
 	passivePortsMax *big.Int
@@ -49,12 +52,13 @@ type Server struct {
 // NewServer returns a Server using the supplied ServerOpts and VFS. Will
 // fail if some required options are missing or it's unable to load
 // the specified TLS cert/key files.
-func NewServer(opts *ServerOpts, fs vfs.VFS, auth acl.Authenticator) (*Server, error) {
+func NewServer(opts *ServerOpts, fs vfs.VFS, auth acl.Authenticator, se script.Engine) (*Server, error) {
 
 	s := Server{
 		ServerOpts: opts,
 		fs:         fs,
 		auth:       auth,
+		se:         se,
 		sessionPool: sync.Pool{
 			New: func() interface{} {
 				return &Session{}

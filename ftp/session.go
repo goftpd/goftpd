@@ -13,6 +13,7 @@ import (
 
 	"github.com/goftpd/goftpd/acl"
 	"github.com/goftpd/goftpd/ftp/cmd"
+	"github.com/goftpd/goftpd/script"
 	"github.com/goftpd/goftpd/vfs"
 )
 
@@ -309,6 +310,10 @@ func (session *Session) handleCommand(ctx context.Context, fields []string) erro
 	}
 
 	// pre command hook
+	if err := session.server.se.Do(ctx, fields, script.ScriptHookPre, session); err != nil {
+		return err
+	}
+
 	if err := c.Execute(ctx, session, fields[1:]); err != nil {
 		// check the type of the error, if its a fatal err then
 		// return it, otherwise return nil to continue
@@ -322,6 +327,9 @@ func (session *Session) handleCommand(ctx context.Context, fields []string) erro
 	session.lastCommand = strings.ToUpper(fields[0])
 
 	// post command hook
+	if err := session.server.se.Do(ctx, fields, script.ScriptHookPost, session); err != nil {
+		return err
+	}
 
 	return nil
 }

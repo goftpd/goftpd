@@ -24,5 +24,4 @@ tags
 
 cp.out
 
-site/*.pem
 site/data/*

@@ -38,7 +38,13 @@ func init() {
 				return err
 			}
 
-			server, err := ftp.NewServer(serverOpts, fs, auth)
+			// get script engine
+			se, err := cfg.ParseScripts()
+			if err != nil {
+				return err
+			}
+
+			server, err := ftp.NewServer(serverOpts, fs, auth, se)
 			if err != nil {
 				return err
 			}

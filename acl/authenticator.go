@@ -31,7 +31,7 @@ type Authenticator interface {
 	GetGroup(string) (*Group, error)
 
 	// save
-	SaveUser(*User) error
+	// SaveUser(*User) error
 	SaveGroup(*Group) error
 
 	// delete
