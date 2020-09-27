@@ -104,6 +104,7 @@ Create some self signed certs (feature to autogen this will be added):
 
 Then run it:
 
+`go run main.go adduser -c site/goftpd.conf -u goftpd -p ohemgeedontusethis`
 `go run main.go run -c site/goftpd.conf`
 
 Congratulations, you are now a hacker.
