@@ -107,13 +107,11 @@ func (s *Session) FS() vfs.VFS             { return s.server.fs }
 func (s *Session) Auth() acl.Authenticator { return s.server.auth }
 
 func (s *Session) User() (*acl.User, bool) {
-	if len(s.login) > 0 {
-		user := acl.User{
-			Name: s.login,
-		}
-		return &user, true
+	u, err := s.server.auth.GetUser(s.login)
+	if err != nil {
+		return nil, false
 	}
-	return nil, false
+	return u, true
 }
 
 // Reset is used by sync.Pool and helps to minimise allocations
