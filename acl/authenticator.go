@@ -181,8 +181,52 @@ func (a *BadgerAuthenticator) GetGroup(name string) (*Group, error) {
 }
 
 // SaveUser overwrites the User in the store
-func (a *BadgerAuthenticator) SaveUser(user *User) error {
-	return errors.New("stub")
+func (a *BadgerAuthenticator) UpdateUser(fn func(user *User) error) error {
+	var count int
+
+	for {
+		err := a.db.Update(func(tx *badger.Txn) error {
+			u := User{Name: name}
+
+			if err := a.getAndDecode(u.Key(), &u); err != nil {
+				if err == badger.ErrKeyNotFound {
+					return nil, ErrUserDoesntExist
+				}
+				return nil, err
+			}
+
+			if err := fn(u); err != nil {
+				return err
+			}
+
+			enc := msgpack.GetEncoder()
+			defer msgpack.PutEncoder(enc)
+
+			b := a.bufferPool.Get().(*bytes.Buffer)
+			b.Reset()
+			defer a.bufferPool.Put(b)
+
+			enc.Reset(b)
+
+			if err := enc.Encode(u); err != nil {
+				return err
+			}
+
+			return tx.Set(e.Key(), b.Bytes())
+		})
+		if err == nil {
+			return nil
+		}
+
+		if err == badger.ErrConflict {
+			if count > 10 {
+				return err
+			}
+			count++
+		}
+	}
+
+	return nil
 }
 
 // SaveGroup overwrites the Group in the store
