@@ -37,7 +37,7 @@ func init() {
 		},
 	}
 
-	adduserCmd.Flags().StringVarP(&cfg, "config", "c", "site/goftpd.conf", "config file to load")
+	adduserCmd.Flags().StringVarP(&cfg, "config", "c", "site/config/goftpd.conf", "config file to load")
 	adduserCmd.Flags().StringVarP(&username, "username", "u", "", "user to create")
 	adduserCmd.Flags().StringVarP(&password, "password", "p", "", "password to add to user")
 
