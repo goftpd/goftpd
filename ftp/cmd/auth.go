@@ -67,6 +67,9 @@ func (c commandAUTH) Execute(ctx context.Context, s Session, params []string) er
 	}
 
 	s.ReplyStatus(StatusSecurityExchangeOK)
+	if err := s.Flush(); err != nil {
+		return CommandFatalError{err}
+	}
 
 	if err := s.Upgrade(); err != nil {
 		return CommandFatalError{err}

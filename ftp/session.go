@@ -33,6 +33,10 @@ type Session struct {
 	renameFrom      []string
 	restartPosition int
 
+	// message state
+	code   int
+	buffer []string
+
 	// authentication
 	login string
 
@@ -129,6 +133,9 @@ func (s *Session) Reset() {
 	s.renameFrom = []string{}
 	s.restartPosition = 0
 
+	s.code = 0
+	s.buffer = []string{}
+
 	s.login = ""
 
 	s.currentDir = "/"
@@ -148,6 +155,11 @@ func (s *Session) Close() error {
 	}
 
 	return nil
+}
+
+// Reply replies with the int and message, mainly for scripts convenience
+func (s *Session) Reply(code int, message string) error {
+	return s.reply(code, message)
 }
 
 // ReplyStatus replies with the default message for a status code
@@ -176,13 +188,26 @@ func (s *Session) ReplyWithMessage(st cmd.Status, message string) error {
 func (s *Session) reply(code int, message string) error {
 	parts := strings.Split(message, "\n")
 
+	s.code = code
+	s.buffer = append(s.buffer, parts...)
+
+	// TODO: remove error from callers :(
+	return nil
+}
+
+func (s *Session) Flush() error {
+	defer func() {
+		s.code = 0
+		s.buffer = nil
+	}()
+
 	b := strings.Builder{}
 
-	if _, err := b.WriteString(fmt.Sprintf("%d", code)); err != nil {
+	if _, err := b.WriteString(fmt.Sprintf("%d", s.code)); err != nil {
 		return cmd.NewFatalError(err)
 	}
 
-	if len(parts) > 1 {
+	if len(s.buffer) > 1 {
 		if _, err := b.WriteString("-"); err != nil {
 			return cmd.NewFatalError(err)
 		}
@@ -192,14 +217,14 @@ func (s *Session) reply(code int, message string) error {
 		return cmd.NewFatalError(err)
 	}
 
-	for _, p := range parts {
+	for _, p := range s.buffer {
 		if _, err := b.WriteString(p + "\r\n"); err != nil {
 			return cmd.NewFatalError(err)
 		}
 	}
 
-	if len(parts) > 2 {
-		if _, err := b.WriteString(fmt.Sprintf("%d End.", code)); err != nil {
+	if len(s.buffer) > 2 {
+		if _, err := b.WriteString(fmt.Sprintf("%d End.", s.code)); err != nil {
 			return cmd.NewFatalError(err)
 		}
 	}
@@ -259,6 +284,10 @@ func (s *Session) serve(ctx context.Context, server *Server, conn net.Conn) {
 	s.server = server
 
 	s.ReplyWithMessage(cmd.StatusServiceReady, "Welcome!")
+	if err := s.Flush(); err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR flush session welcome: %s", err)
+		return
+	}
 
 	defer s.Close()
 
@@ -285,6 +314,7 @@ func (s *Session) serve(ctx context.Context, server *Server, conn net.Conn) {
 			fmt.Fprintf(os.Stderr, "ERROR handleCommand: %s", err)
 			break
 		}
+
 	}
 }
 
@@ -293,6 +323,13 @@ func (s *Session) serve(ctx context.Context, server *Server, conn net.Conn) {
 func (session *Session) handleCommand(ctx context.Context, fields []string) error {
 	// TODO: ugly as sin
 	c, ok := cmd.CommandMap[strings.ToUpper(fields[0])]
+
+	defer func() {
+		if err := session.Flush(); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR session flush: %s", err)
+		}
+
+	}()
 
 	if !ok {
 		return session.ReplyStatus(cmd.StatusNotImplemented)

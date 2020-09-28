@@ -18,4 +18,6 @@ if params then
 	end
 end
 
+session:Reply(226, "HI FROM LUA!")
+
 return true

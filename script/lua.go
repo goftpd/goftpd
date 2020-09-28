@@ -151,6 +151,7 @@ func (le *LUAEngine) Do(ctx context.Context, fields []string, hook ScriptHook, s
 			defer L.Close()
 
 			// TODO: do we need to use context as it degrades performance quite a lot
+			// although we could cancel all the concurrent scripts with it also :/
 			L.SetContext(ctx)
 
 			// push byte code
@@ -171,6 +172,7 @@ func (le *LUAEngine) Do(ctx context.Context, fields []string, hook ScriptHook, s
 				return errors.Errorf("expected bool in return to %s", c.Path)
 			}
 
+			// if false dont continue, aka return an error
 			if !lua.LVAsBool(ret) {
 				return errors.Errorf("error in call to %s", c.Path)
 			}
