@@ -43,7 +43,8 @@ func (c commandSTAT) Execute(ctx context.Context, s Session, params []string) er
 
 	user, ok := s.User()
 	if !ok {
-		return s.ReplyStatus(StatusNotLoggedIn)
+		s.ReplyStatus(StatusNotLoggedIn)
+		return nil
 	}
 
 	var options, path string
@@ -63,7 +64,8 @@ func (c commandSTAT) Execute(ctx context.Context, s Session, params []string) er
 	// get file list and parse with any options
 	finfo, err := s.FS().ListDir(path, user)
 	if err != nil {
-		return s.ReplyError(StatusActionAbortedError, err)
+		s.ReplyError(StatusActionAbortedError, err)
+		return nil
 	}
 
 	if len(options) > 0 {
@@ -71,7 +73,7 @@ func (c commandSTAT) Execute(ctx context.Context, s Session, params []string) er
 		finfo.SortByName()
 	}
 
-	return s.ReplyWithMessage(
+	s.ReplyWithMessage(
 		StatusSystemStatus,
 		fmt.Sprintf(
 			"Status of \"%s\":\n%s",
@@ -79,6 +81,7 @@ func (c commandSTAT) Execute(ctx context.Context, s Session, params []string) er
 			finfo.Detailed(),
 		),
 	)
+	return nil
 }
 
 func (c commandSTAT) NoParams(s Session) error {
@@ -97,7 +100,8 @@ func (c commandSTAT) NoParams(s Session) error {
 
 	user, ok := s.User()
 	if !ok {
-		return s.ReplyStatus(StatusNotLoggedIn)
+		s.ReplyStatus(StatusNotLoggedIn)
+		return nil
 	}
 
 	dataType := "ASCII"
@@ -112,7 +116,8 @@ func (c commandSTAT) NoParams(s Session) error {
 
 	msg := fmt.Sprintf(statBaseMessage, user.Name, dataType, protection, dataMessage)
 
-	return s.ReplyWithMessage(StatusSystemStatus, msg)
+	s.ReplyWithMessage(StatusSystemStatus, msg)
+	return nil
 }
 
 func init() {

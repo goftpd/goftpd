@@ -16,7 +16,8 @@ type commandSYST struct{}
 func (c commandSYST) RequireState() SessionState { return SessionStateLoggedIn }
 
 func (c commandSYST) Execute(ctx context.Context, s Session, params []string) error {
-	return s.ReplyWithMessage(StatusSystemType, "UNIX Type: L8")
+	s.ReplyWithMessage(StatusSystemType, "UNIX Type: L8")
+	return nil
 }
 
 func init() {

@@ -21,26 +21,31 @@ func (c commandRNTO) Execute(ctx context.Context, s Session, params []string) er
 	defer s.SetRenameFrom(nil)
 
 	if len(params) == 0 {
-		return s.ReplyStatus(StatusSyntaxError)
+		s.ReplyStatus(StatusSyntaxError)
+		return nil
 	}
 
 	if s.LastCommand() != "RNFR" {
-		return s.ReplyStatus(StatusBadCommandSequence)
+		s.ReplyStatus(StatusBadCommandSequence)
+		return nil
 	}
 
 	user, ok := s.User()
 	if !ok {
-		return s.ReplyStatus(StatusNotLoggedIn)
+		s.ReplyStatus(StatusNotLoggedIn)
+		return nil
 	}
 
 	oldpath := s.FS().Join(s.CWD(), s.RenameFrom())
 	newpath := s.FS().Join(s.CWD(), params)
 
 	if err := s.FS().RenameFile(oldpath, newpath, user); err != nil {
-		return s.ReplyError(StatusActionNotOK, err)
+		s.ReplyError(StatusActionNotOK, err)
+		return nil
 	}
 
-	return s.ReplyStatus(StatusFileActionOK)
+	s.ReplyStatus(StatusFileActionOK)
+	return nil
 }
 
 func init() {

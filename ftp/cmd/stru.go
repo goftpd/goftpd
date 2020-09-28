@@ -29,14 +29,17 @@ func (c commandSTRU) RequireState() SessionState { return SessionStateLoggedIn }
 
 func (c commandSTRU) Execute(ctx context.Context, s Session, params []string) error {
 	if len(params) != 1 {
-		return s.ReplyStatus(StatusSyntaxError)
+		s.ReplyStatus(StatusSyntaxError)
+		return nil
 	}
 
 	if strings.ToUpper(params[0]) != "F" {
-		return s.ReplyStatus(StatusParameterNotImplemented)
+		s.ReplyStatus(StatusParameterNotImplemented)
+		return nil
 	}
 
-	return s.ReplyStatus(StatusOK)
+	s.ReplyStatus(StatusOK)
+	return nil
 }
 
 func init() {

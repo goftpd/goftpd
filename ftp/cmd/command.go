@@ -56,11 +56,11 @@ const (
 
 type Session interface {
 	// reply
-	Reply(int, string) error
-	ReplyWithMessage(Status, string) error
-	ReplyWithArgs(Status, ...interface{}) error
-	ReplyError(Status, error) error
-	ReplyStatus(Status) error
+	Reply(int, string)
+	ReplyWithMessage(Status, string)
+	ReplyWithArgs(Status, ...interface{})
+	ReplyError(Status, error)
+	ReplyStatus(Status)
 	Flush() error
 
 	// TLS

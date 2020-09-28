@@ -42,18 +42,18 @@ func (c commandABOR) Execute(ctx context.Context, s Session, params []string) er
 	// check if we have an existing data conncetion, if so cancel it
 	if s.Data() != nil {
 		if err := s.Data().Close(); err != nil {
-			return s.ReplyError(StatusCantOpenDataConnection, err)
+			s.ReplyError(StatusCantOpenDataConnection, err)
+			return nil
 		}
 
-		if err := s.ReplyStatus(StatusDataCloseAborted); err != nil {
-			return err
-		}
+		s.ReplyStatus(StatusDataCloseAborted)
 
 		// TODO: might be a race condition here
 		s.ClearData()
 	}
 
-	return s.ReplyStatus(StatusDataClosedOK)
+	s.ReplyStatus(StatusDataClosedOK)
+	return nil
 }
 
 func init() {

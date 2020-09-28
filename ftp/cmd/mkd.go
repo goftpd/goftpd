@@ -19,21 +19,25 @@ func (c commandMKD) RequireState() SessionState { return SessionStateLoggedIn }
 
 func (c commandMKD) Execute(ctx context.Context, s Session, params []string) error {
 	if len(params) == 0 {
-		return s.ReplyStatus(StatusSyntaxError)
+		s.ReplyStatus(StatusSyntaxError)
+		return nil
 	}
 
 	path := s.FS().Join(s.CWD(), params)
 
 	user, ok := s.User()
 	if !ok {
-		return s.ReplyStatus(StatusNotLoggedIn)
+		s.ReplyStatus(StatusNotLoggedIn)
+		return nil
 	}
 
 	if err := s.FS().MakeDir(path, user); err != nil {
-		return s.ReplyError(StatusActionNotOK, err)
+		s.ReplyError(StatusActionNotOK, err)
+		return nil
 	}
 
-	return s.ReplyWithArgs(StatusPathCreated, path)
+	s.ReplyWithArgs(StatusPathCreated, path)
+	return nil
 }
 
 func init() {

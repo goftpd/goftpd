@@ -18,12 +18,14 @@ func (c commandRNFR) RequireState() SessionState { return SessionStateLoggedIn }
 
 func (c commandRNFR) Execute(ctx context.Context, s Session, params []string) error {
 	if len(params) == 0 {
-		return s.ReplyStatus(StatusSyntaxError)
+		s.ReplyStatus(StatusSyntaxError)
+		return nil
 	}
 
 	s.SetRenameFrom(params)
 
-	return s.ReplyStatus(StatusPendingMoreInfo)
+	s.ReplyStatus(StatusPendingMoreInfo)
+	return nil
 }
 
 func init() {

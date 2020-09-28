@@ -55,10 +55,12 @@ func (c commandTYPE) Execute(ctx context.Context, s Session, params []string) er
 		s.SetBinaryMode(true)
 
 	default:
-		return s.ReplyStatus(StatusSyntaxError)
+		s.ReplyStatus(StatusSyntaxError)
+		return nil
 	}
 
-	return s.ReplyStatus(StatusOK)
+	s.ReplyStatus(StatusOK)
+	return nil
 }
 
 func init() {

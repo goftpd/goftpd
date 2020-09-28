@@ -22,33 +22,33 @@ func (c commandRETR) RequireState() SessionState { return SessionStateLoggedIn }
 
 func (c commandRETR) Execute(ctx context.Context, s Session, params []string) error {
 	if len(params) == 0 {
-		return s.ReplyStatus(StatusSyntaxError)
+		s.ReplyStatus(StatusSyntaxError)
+		return nil
 	}
 
 	if s.Data() == nil {
-		return s.ReplyStatus(StatusCantOpenDataConnection)
+		s.ReplyStatus(StatusCantOpenDataConnection)
+		return nil
 	}
 
 	path := s.FS().Join(s.CWD(), params)
 
 	user, ok := s.User()
 	if !ok {
-		return s.ReplyStatus(StatusNotLoggedIn)
+		s.ReplyStatus(StatusNotLoggedIn)
+		return nil
 	}
 
 	reader, err := s.FS().DownloadFile(path, user)
 	if err != nil {
-		return s.ReplyError(StatusActionNotOK, err)
+		s.ReplyError(StatusActionNotOK, err)
+		return nil
 	}
 
 	if s.DataProtected() {
-		if err := s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for download using TLS/SSL."); err != nil {
-			return err
-		}
+		s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for download using TLS/SSL.")
 	} else {
-		if err := s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for download."); err != nil {
-			return err
-		}
+		s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for download.")
 	}
 	defer s.Data().Close()
 	defer s.ClearData()
@@ -59,18 +59,21 @@ func (c commandRETR) Execute(ctx context.Context, s Session, params []string) er
 	// seek reader
 	if s.RestartPosition() > 0 {
 		if _, err := reader.Seek(int64(s.RestartPosition()), io.SeekStart); err != nil {
-			return s.ReplyError(StatusActionNotOK, err)
+			s.ReplyError(StatusActionNotOK, err)
+			return nil
 		}
 	}
 
 	n, err := io.Copy(s.Data(), reader)
 	if err != nil {
-		return s.ReplyError(StatusActionNotOK, err)
+		s.ReplyError(StatusActionNotOK, err)
+		return nil
 	}
 
 	s.Data().Close()
 
-	return s.ReplyWithMessage(StatusDataClosedOK, fmt.Sprintf("OK, received %d bytes.", n))
+	s.ReplyWithMessage(StatusDataClosedOK, fmt.Sprintf("OK, received %d bytes.", n))
+	return nil
 }
 
 func init() {

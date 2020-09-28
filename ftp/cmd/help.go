@@ -30,7 +30,8 @@ func (c commandHELP) RequireState() SessionState { return SessionStateNull }
 
 func (c *commandHELP) Execute(ctx context.Context, s Session, params []string) error {
 	if len(params) > 0 {
-		return s.ReplyStatus(StatusSyntaxError)
+		s.ReplyStatus(StatusSyntaxError)
+		return nil
 	}
 
 	c.once.Do(func() {
@@ -49,7 +50,8 @@ func (c *commandHELP) Execute(ctx context.Context, s Session, params []string) e
 		// help commands and support params > 0
 	})
 
-	return s.ReplyWithMessage(StatusSystemStatus, c.reply)
+	s.ReplyWithMessage(StatusSystemStatus, c.reply)
+	return nil
 }
 
 func init() {

@@ -31,22 +31,26 @@ func (c commandPORT) RequireState() SessionState { return SessionStateLoggedIn }
 
 func (c commandPORT) Execute(ctx context.Context, s Session, params []string) error {
 	if len(params) != 1 {
-		return s.ReplyStatus(StatusSyntaxError)
+		s.ReplyStatus(StatusSyntaxError)
+		return nil
 	}
 
 	// check if we have an existing data conncetion, if so cancel it
 	if s.Data() != nil {
 		if err := s.Data().Close(); err != nil {
-			return s.ReplyError(StatusCantOpenDataConnection, err)
+			s.ReplyError(StatusCantOpenDataConnection, err)
+			return nil
 		}
 	}
 
 	// create new passive data connection
 	if err := s.NewActiveDataConn(ctx, params[0]); err != nil {
-		return s.ReplyError(StatusCantOpenDataConnection, err)
+		s.ReplyError(StatusCantOpenDataConnection, err)
+		return nil
 	}
 
-	return s.ReplyWithMessage(StatusOK, fmt.Sprintf("Connection established to (%s)", params[0]))
+	s.ReplyWithMessage(StatusOK, fmt.Sprintf("Connection established to (%s)", params[0]))
+	return nil
 }
 
 func init() {

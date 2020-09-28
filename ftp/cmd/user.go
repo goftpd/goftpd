@@ -30,14 +30,13 @@ func (c commandUSER) RequireState() SessionState { return SessionStateAuth }
 
 func (c commandUSER) Execute(ctx context.Context, s Session, params []string) error {
 	if len(params) != 1 {
-		return s.ReplyStatus(StatusSyntaxError)
+		s.ReplyStatus(StatusSyntaxError)
+		return nil
 	}
 
 	s.SetLogin("")
 
-	if err := s.ReplyStatus(StatusNeedPassword); err != nil {
-		return err
-	}
+	s.ReplyStatus(StatusNeedPassword)
 
 	s.SetLogin(params[0])
 

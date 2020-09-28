@@ -24,45 +24,47 @@ func (c commandSTOR) RequireState() SessionState { return SessionStateLoggedIn }
 
 func (c commandSTOR) Execute(ctx context.Context, s Session, params []string) error {
 	if len(params) == 0 {
-		return s.ReplyStatus(StatusSyntaxError)
+		s.ReplyStatus(StatusSyntaxError)
+		return nil
 	}
 
 	if s.Data() == nil {
-		return s.ReplyStatus(StatusCantOpenDataConnection)
+		s.ReplyStatus(StatusCantOpenDataConnection)
+		return nil
 	}
 
 	path := s.FS().Join(s.CWD(), params)
 
 	user, ok := s.User()
 	if !ok {
-		return s.ReplyStatus(StatusNotLoggedIn)
+		s.ReplyStatus(StatusNotLoggedIn)
+		return nil
 	}
 
 	writer, err := s.FS().UploadFile(path, user)
 	if err != nil {
-		return s.ReplyError(StatusActionNotOK, err)
+		s.ReplyError(StatusActionNotOK, err)
+		return nil
 	}
 
 	if s.DataProtected() {
-		if err := s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for upload using TLS/SSL."); err != nil {
-			return err
-		}
+		s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for upload using TLS/SSL.")
 	} else {
-		if err := s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for upload."); err != nil {
-			return err
-		}
+		s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for upload.")
 	}
 	defer s.Data().Close()
 	defer s.ClearData()
 
 	n, err := io.Copy(writer, s.Data())
 	if err != nil {
-		return s.ReplyError(StatusActionNotOK, err)
+		s.ReplyError(StatusActionNotOK, err)
+		return nil
 	}
 
 	s.Data().Close()
 
-	return s.ReplyWithMessage(StatusDataClosedOK, fmt.Sprintf("OK, received %d bytes.", n))
+	s.ReplyWithMessage(StatusDataClosedOK, fmt.Sprintf("OK, received %d bytes.", n))
+	return nil
 }
 
 func init() {

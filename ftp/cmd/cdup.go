@@ -22,12 +22,14 @@ func (c commandCDUP) RequireState() SessionState { return SessionStateLoggedIn }
 
 func (c commandCDUP) Execute(ctx context.Context, s Session, params []string) error {
 	if len(params) != 0 {
-		return s.ReplyStatus(StatusSyntaxError)
+		s.ReplyStatus(StatusSyntaxError)
+		return nil
 	}
 
 	user, ok := s.User()
 	if !ok {
-		return s.ReplyStatus(StatusNotLoggedIn)
+		s.ReplyStatus(StatusNotLoggedIn)
+		return nil
 	}
 
 	path := s.FS().Join(s.CWD(), []string{"../"})
@@ -35,12 +37,14 @@ func (c commandCDUP) Execute(ctx context.Context, s Session, params []string) er
 	// acl checks
 	_, err := s.FS().ListDir(path, user)
 	if err != nil {
-		return s.ReplyError(StatusActionNotOK, err)
+		s.ReplyError(StatusActionNotOK, err)
+		return nil
 	}
 
 	s.SetCWD(path)
 
-	return s.ReplyWithMessage(StatusFileActionOK, fmt.Sprintf(`Current Working Dir "%s"`, path))
+	s.ReplyWithMessage(StatusFileActionOK, fmt.Sprintf(`Current Working Dir "%s"`, path))
+	return nil
 }
 
 func init() {

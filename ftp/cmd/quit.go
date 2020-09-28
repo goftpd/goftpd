@@ -29,18 +29,21 @@ func (c commandQUIT) RequireState() SessionState { return SessionStateAuth }
 func (c commandQUIT) Execute(ctx context.Context, s Session, params []string) error {
 	_, ok := s.User()
 	if !ok {
-		return s.ReplyStatus(StatusNotLoggedIn)
+		s.ReplyStatus(StatusNotLoggedIn)
+		return nil
 	}
 
 	if s.Data() != nil {
 		if err := s.Data().Close(); err != nil {
-			return s.ReplyError(StatusCommandUnrecognised, err)
+			s.ReplyError(StatusCommandUnrecognised, err)
+			return nil
 		}
 	}
 
 	defer s.Close()
 
-	return s.ReplyStatus(StatusClosingControl)
+	s.ReplyStatus(StatusClosingControl)
+	return nil
 }
 
 func init() {

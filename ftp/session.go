@@ -158,41 +158,38 @@ func (s *Session) Close() error {
 }
 
 // Reply replies with the int and message, mainly for scripts convenience
-func (s *Session) Reply(code int, message string) error {
-	return s.reply(code, message)
+func (s *Session) Reply(code int, message string) {
+	s.reply(code, message)
 }
 
 // ReplyStatus replies with the default message for a status code
-func (s *Session) ReplyStatus(st cmd.Status) error {
-	return s.reply(st.Code, st.Message)
+func (s *Session) ReplyStatus(st cmd.Status) {
+	s.reply(st.Code, st.Message)
 }
 
 // ReplyStatusArgs replies with the default message for a status code
 // but takes args
-func (s *Session) ReplyWithArgs(st cmd.Status, args ...interface{}) error {
-	return s.reply(st.Code, fmt.Sprintf(st.Message, args...))
+func (s *Session) ReplyWithArgs(st cmd.Status, args ...interface{}) {
+	s.reply(st.Code, fmt.Sprintf(st.Message, args...))
 }
 
 // ReplyError replies with the default message for a status code
 // but takes args
-func (s *Session) ReplyError(st cmd.Status, err error) error {
-	return s.reply(st.Code, fmt.Sprintf("%s (%s)", st.Message, err.Error()))
+func (s *Session) ReplyError(st cmd.Status, err error) {
+	s.reply(st.Code, fmt.Sprintf("%s (%s)", st.Message, err.Error()))
 }
 
 // ReplyWithMessage replies with custom message
-func (s *Session) ReplyWithMessage(st cmd.Status, message string) error {
-	return s.reply(st.Code, message)
+func (s *Session) ReplyWithMessage(st cmd.Status, message string) {
+	s.reply(st.Code, message)
 }
 
 // reply is the underlying code for splitting a message across multiple lines
-func (s *Session) reply(code int, message string) error {
+func (s *Session) reply(code int, message string) {
 	parts := strings.Split(message, "\n")
 
 	s.code = code
 	s.buffer = append(s.buffer, parts...)
-
-	// TODO: remove error from callers :(
-	return nil
 }
 
 func (s *Session) Flush() error {
@@ -332,18 +329,20 @@ func (session *Session) handleCommand(ctx context.Context, fields []string) erro
 	}()
 
 	if !ok {
-		return session.ReplyStatus(cmd.StatusNotImplemented)
+		session.ReplyStatus(cmd.StatusNotImplemented)
+		return nil
 	}
 
 	if session.State() < c.RequireState() {
 		switch c.RequireState() {
 		case cmd.SessionStateAuth:
-			return session.ReplyWithMessage(cmd.StatusBadCommandSequence, "Please send AUTH first.")
+			session.ReplyWithMessage(cmd.StatusBadCommandSequence, "Please send AUTH first.")
 		case cmd.SessionStateLoggedIn:
-			return session.ReplyStatus(cmd.StatusNotLoggedIn)
-
+			session.ReplyStatus(cmd.StatusNotLoggedIn)
+		default:
+			session.ReplyStatus(cmd.StatusNotImplemented)
 		}
-		return session.ReplyStatus(cmd.StatusNotImplemented)
+		return nil
 	}
 
 	// pre command hook

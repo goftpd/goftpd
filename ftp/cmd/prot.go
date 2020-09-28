@@ -70,7 +70,8 @@ func (c commandPROT) RequireState() SessionState { return SessionStateAuth }
 
 func (c commandPROT) Execute(ctx context.Context, s Session, params []string) error {
 	if len(params) != 1 {
-		return s.ReplyStatus(StatusSyntaxError)
+		s.ReplyStatus(StatusSyntaxError)
+		return nil
 	}
 
 	switch strings.ToUpper(params[0]) {
@@ -83,13 +84,16 @@ func (c commandPROT) Execute(ctx context.Context, s Session, params []string) er
 	case "S":
 		fallthrough
 	case "E":
-		return s.ReplyWithArgs(StatusBadProtectionLevel, params[0])
+		s.ReplyWithArgs(StatusBadProtectionLevel, params[0])
+		return nil
 
 	default:
-		return s.ReplyStatus(StatusParameterNotImplemented)
+		s.ReplyStatus(StatusParameterNotImplemented)
+		return nil
 	}
 
-	return s.ReplyWithMessage(StatusOK, fmt.Sprintf("Protection Level '%s' accepted.", params[0]))
+	s.ReplyWithMessage(StatusOK, fmt.Sprintf("Protection Level '%s' accepted.", params[0]))
+	return nil
 }
 
 func init() {

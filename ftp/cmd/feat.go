@@ -17,7 +17,8 @@ func (c commandFEAT) RequireState() SessionState { return SessionStateNull }
 
 func (c *commandFEAT) Execute(ctx context.Context, s Session, params []string) error {
 	if len(params) > 0 {
-		return s.ReplyStatus(StatusSyntaxError)
+		s.ReplyStatus(StatusSyntaxError)
+		return nil
 	}
 
 	// lets generate the Feat list on the first call
@@ -42,7 +43,8 @@ func (c *commandFEAT) Execute(ctx context.Context, s Session, params []string) e
 		c.reply = b.String()
 	})
 
-	return s.ReplyWithMessage(StatusSystemStatus, c.reply)
+	s.ReplyWithMessage(StatusSystemStatus, c.reply)
+	return nil
 }
 
 func init() {

@@ -32,12 +32,14 @@ func (c commandLIST) Execute(ctx context.Context, s Session, params []string) er
 	}
 
 	if s.Data() == nil {
-		return s.ReplyStatus(StatusCantOpenDataConnection)
+		s.ReplyStatus(StatusCantOpenDataConnection)
+		return nil
 	}
 
 	user, ok := s.User()
 	if !ok {
-		return s.ReplyStatus(StatusNotLoggedIn)
+		s.ReplyStatus(StatusNotLoggedIn)
+		return nil
 	}
 
 	var options, path string
@@ -58,7 +60,8 @@ func (c commandLIST) Execute(ctx context.Context, s Session, params []string) er
 	// get file list and parse with any options
 	finfo, err := s.FS().ListDir(path, user)
 	if err != nil {
-		return s.ReplyError(StatusActionAbortedError, err)
+		s.ReplyError(StatusActionAbortedError, err)
+		return nil
 	}
 
 	if len(options) > 0 {
@@ -67,13 +70,9 @@ func (c commandLIST) Execute(ctx context.Context, s Session, params []string) er
 	}
 
 	if s.DataProtected() {
-		if err := s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for directory listing using TLS/SSL."); err != nil {
-			return err
-		}
+		s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for directory listing using TLS/SSL.")
 	} else {
-		if err := s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for directory listing."); err != nil {
-			return err
-		}
+		s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for directory listing.")
 	}
 	defer s.Data().Close()
 	defer s.ClearData()
@@ -81,7 +80,8 @@ func (c commandLIST) Execute(ctx context.Context, s Session, params []string) er
 	// write it
 	n, err := s.Data().Write(finfo.Detailed())
 	if err != nil {
-		return s.ReplyError(StatusActionAbortedError, err)
+		s.ReplyError(StatusActionAbortedError, err)
+		return nil
 	}
 
 	s.Data().Close()

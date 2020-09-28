@@ -18,7 +18,8 @@ type commandNOOP struct{}
 func (c commandNOOP) RequireState() SessionState { return SessionStateLoggedIn }
 
 func (c commandNOOP) Execute(ctx context.Context, s Session, params []string) error {
-	return s.ReplyStatus(StatusOK)
+	s.ReplyStatus(StatusOK)
+	return nil
 }
 
 func init() {

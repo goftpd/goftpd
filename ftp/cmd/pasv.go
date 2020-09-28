@@ -25,16 +25,19 @@ func (c commandPASV) Execute(ctx context.Context, s Session, params []string) er
 	// check if we have an existing data conncetion, if so cancel it
 	if s.Data() != nil {
 		if err := s.Data().Close(); err != nil {
-			return s.ReplyError(StatusCantOpenDataConnection, err)
+			s.ReplyError(StatusCantOpenDataConnection, err)
+			return nil
 		}
 	}
 
 	// create new passive data connection
 	if err := s.NewPassiveDataConn(ctx); err != nil {
-		return s.ReplyError(StatusCantOpenDataConnection, err)
+		s.ReplyError(StatusCantOpenDataConnection, err)
+		return nil
 	}
 
-	return s.ReplyWithArgs(StatusPassiveMode, c.toString(s.Data()))
+	s.ReplyWithArgs(StatusPassiveMode, c.toString(s.Data()))
+	return nil
 }
 
 func (c commandPASV) toString(d DataConn) string {

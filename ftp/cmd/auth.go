@@ -56,14 +56,16 @@ func (c commandAUTH) RequireState() SessionState { return SessionStateNull }
 
 func (c commandAUTH) Execute(ctx context.Context, s Session, params []string) error {
 	if len(params) != 1 {
-		return s.ReplyStatus(StatusSyntaxError)
+		s.ReplyStatus(StatusSyntaxError)
+		return nil
 	}
 
 	if strings.ToUpper(params[0]) != "TLS" {
-		return s.ReplyWithMessage(
+		s.ReplyWithMessage(
 			StatusParameterNotImplemented,
 			fmt.Sprintf("Security Mechanism '%s' not supported", params[0]),
 		)
+		return nil
 	}
 
 	s.ReplyStatus(StatusSecurityExchangeOK)

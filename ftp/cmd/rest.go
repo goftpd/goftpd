@@ -22,17 +22,20 @@ func (c commandREST) RequireState() SessionState { return SessionStateLoggedIn }
 
 func (c commandREST) Execute(ctx context.Context, s Session, params []string) error {
 	if len(params) != 1 {
-		return s.ReplyStatus(StatusSyntaxError)
+		s.ReplyStatus(StatusSyntaxError)
+		return nil
 	}
 
 	position, err := strconv.Atoi(params[0])
 	if err != nil {
-		return s.ReplyStatus(StatusSyntaxError)
+		s.ReplyStatus(StatusSyntaxError)
+		return nil
 	}
 
 	s.SetRestartPosition(position)
 
-	return s.ReplyStatus(StatusPendingMoreInfo)
+	s.ReplyStatus(StatusPendingMoreInfo)
+	return nil
 }
 
 func init() {

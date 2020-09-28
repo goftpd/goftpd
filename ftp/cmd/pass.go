@@ -27,22 +27,22 @@ func (c commandPASS) RequireState() SessionState { return SessionStateAuth }
 
 func (c commandPASS) Execute(ctx context.Context, s Session, params []string) error {
 	if len(params) != 1 {
-		return s.ReplyStatus(StatusSyntaxError)
+		s.ReplyStatus(StatusSyntaxError)
+		return nil
 	}
 
 	if len(s.Login()) == 0 {
-		return s.ReplyStatus(StatusBadCommandSequence)
+		s.ReplyStatus(StatusBadCommandSequence)
+		return nil
 	}
 
 	if !s.Auth().CheckPassword(s.Login(), params[0]) {
 		s.SetLogin("")
-		return s.ReplyStatus(StatusNotLoggedIn)
+		s.ReplyStatus(StatusNotLoggedIn)
+		return nil
 	}
 
-	if err := s.ReplyWithArgs(StatusUserLoggedIn, fmt.Sprintf("Welcome back %s!", s.Login())); err != nil {
-		s.SetLogin("")
-		return err
-	}
+	s.ReplyWithArgs(StatusUserLoggedIn, fmt.Sprintf("Welcome back %s!", s.Login()))
 
 	s.SetState(SessionStateLoggedIn)
 

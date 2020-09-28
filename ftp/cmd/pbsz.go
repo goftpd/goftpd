@@ -41,19 +41,23 @@ func (c commandPBSZ) RequireState() SessionState { return SessionStateAuth }
 
 func (c commandPBSZ) Execute(ctx context.Context, s Session, params []string) error {
 	if len(params) != 1 {
-		return s.ReplyStatus(StatusSyntaxError)
+		s.ReplyStatus(StatusSyntaxError)
+		return nil
 	}
 
 	size, err := strconv.Atoi(params[0])
 	if err != nil {
-		return s.ReplyError(StatusSyntaxError, err)
+		s.ReplyError(StatusSyntaxError, err)
+		return nil
 	}
 
 	if size != 0 {
-		return s.ReplyWithMessage(StatusSyntaxError, "PBSZ=0")
+		s.ReplyWithMessage(StatusSyntaxError, "PBSZ=0")
+		return nil
 	}
 
-	return s.ReplyStatus(StatusOK)
+	s.ReplyStatus(StatusOK)
+	return nil
 }
 
 func init() {

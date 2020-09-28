@@ -18,10 +18,12 @@ func (c commandPWD) RequireState() SessionState { return SessionStateLoggedIn }
 
 func (c commandPWD) Execute(ctx context.Context, s Session, params []string) error {
 	if len(params) > 0 {
-		return s.ReplyStatus(StatusSyntaxError)
+		s.ReplyStatus(StatusSyntaxError)
+		return nil
 	}
 
-	return s.ReplyWithMessage(StatusPathCreated, fmt.Sprintf(`"%s" is current directory.`, s.CWD()))
+	s.ReplyWithMessage(StatusPathCreated, fmt.Sprintf(`"%s" is current directory.`, s.CWD()))
+	return nil
 }
 
 func init() {
