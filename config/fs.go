@@ -26,7 +26,7 @@ func (c *Config) ParseFS() (vfs.VFS, error) {
 	}
 
 	if len(opts.ShadowDB) == 0 {
-		opts.ShadowDB = "shadow.db"
+		opts.ShadowDB = "site/config/shadow.db"
 	}
 
 	if len(opts.Hide) > 0 {

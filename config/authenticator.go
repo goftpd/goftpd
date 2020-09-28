@@ -19,7 +19,7 @@ func (c *Config) ParseAuthenticator() (acl.Authenticator, error) {
 	}
 
 	if len(opts.DB) == 0 {
-		opts.DB = "users.db"
+		opts.DB = "site/config/users.db"
 	}
 
 	opt := badger.DefaultOptions(opts.DB)

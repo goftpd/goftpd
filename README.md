@@ -96,16 +96,16 @@ or wget:
 
 If you don't want to edit the conf, then:
 
-`mkdir site/data`
+`mkdir site/data && mkdir site/config`
 
 Create some self signed certs (feature to autogen this will be added):
 
-`openssl req -x509 -newkey rsa:4096 -keyout site/key.pem -out site/cert.pem -days 365 -nodes`
+`openssl req -x509 -newkey rsa:4096 -keyout site/config/key.pem -out site/config/cert.pem -days 365 -nodes`
 
 Then run it:
 
-`go run main.go adduser -c site/goftpd.conf -u goftpd -p ohemgeedontusethis`
-`go run main.go run -c site/goftpd.conf`
+`go run main.go adduser -u goftpd -p ohemgeedontusethis`
+`go run main.go run`
 
 Congratulations, you are now a hacker.
 
@@ -123,18 +123,18 @@ essentially the same thing as groups and I'm yet to hear an argument to keep
 them around. Currently implemented ACL Filesystem scopes are:
 
 ```
-acl upload /path -user =group !*
-acl download /path -user =group *
-acl rename /path -user =group !*
-acl renameown /path -user =group *
-acl delete /path -user =group !*
-acl deleteown /path -user =group *
-acl resume /path -user =group !*
-acl resumeown /path -user =group *
-acl makedir /path -user =group !*
-acl list /path -user =group *
-acl hideuser / !=staff *
-acl hidegroup / !=staff *
+acl upload /path** -user =group !*
+acl download /path** -user =group *
+acl rename /path** -user =group !*
+acl renameown /path** -user =group *
+acl delete /path** -user =group !*
+acl deleteown /path** -user =group *
+acl resume /path** -user =group !*
+acl resumeown /path** -user =group *
+acl makedir /path** -user =group !*
+acl list /path** -user =group *
+acl hideuser /** !=staff *
+acl hidegroup /** !=staff *
 ```
 
 The filesystem currently does not use UID/GID as a way of storing meta data.
@@ -151,7 +151,7 @@ API is yet to be decided, and the language choices are lua or javascript
 (asynchronous) or a trigger (synchronous). Some examples might look like:
 
 ```
-script post 'RETR' event scripts/wowow.lua
-script pre 'MKD' trigger scripts/omg.lua
-script post 'SITE BOOP' trigger scripts/doaboop.lua
+script post 'RETR' event site/scripts/wowow.lua
+script pre 'MKD' trigger site/scripts/omg.lua
+script post 'SITE BOOP' trigger site/scripts/doaboop.lua
 ```

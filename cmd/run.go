@@ -59,7 +59,7 @@ func init() {
 		},
 	}
 
-	runCmd.Flags().StringVarP(&configPath, "config", "c", "goftpd.conf", "config file to load")
+	runCmd.Flags().StringVarP(&configPath, "config", "c", "site/goftpd.conf", "config file to load")
 
 	rootCmd.AddCommand(runCmd)
 }
