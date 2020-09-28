@@ -12,6 +12,7 @@ import (
 	lua "github.com/yuin/gopher-lua"
 	"github.com/yuin/gopher-lua/parse"
 	"golang.org/x/sync/errgroup"
+	luar "layeh.com/gopher-luar"
 )
 
 type LUAEngine struct {
@@ -113,6 +114,15 @@ func (le *LUAEngine) Do(ctx context.Context, fields []string, hook ScriptHook, s
 			return nil
 		}
 		ftpCommand = strings.ToLower(strings.Join(fields[0:1], " "))
+		if len(fields) > 2 {
+			fields = fields[1:]
+		}
+	}
+
+	if len(fields) > 1 {
+		fields = fields[1:]
+	} else {
+		fields = []string{}
 	}
 
 	if _, ok := le.commands[ftpCommand]; !ok {
@@ -143,16 +153,29 @@ func (le *LUAEngine) Do(ctx context.Context, fields []string, hook ScriptHook, s
 			// TODO: do we need to use context as it degrades performance quite a lot
 			L.SetContext(ctx)
 
-			// need to push:
-			// - session
-			// - command
-			// - params
+			// push byte code
+			L.Push(L.NewFunctionFromProto(proto))
 
-			// needs to cancel on ctx
+			L.SetGlobal("ftpCommand", luar.New(L, ftpCommand))
+			L.SetGlobal("params", luar.New(L, fields))
+			L.SetGlobal("session", luar.New(L, session))
 
-			lfunc := L.NewFunctionFromProto(proto)
-			L.Push(lfunc)
-			return L.PCall(0, lua.MultRet, nil)
+			if err := L.PCall(0, 1, nil); err != nil {
+				return err
+			}
+
+			ret := L.Get(-1)
+			L.Pop(1)
+
+			if ret.Type() != lua.LTBool {
+				return errors.Errorf("expected bool in return to %s", c.Path)
+			}
+
+			if !lua.LVAsBool(ret) {
+				return errors.Errorf("error in call to %s", c.Path)
+			}
+
+			return nil
 		})
 	}
 

@@ -19,7 +19,7 @@ tags
 [._]*.un~
 
 *.db
-
+*.log
 *.pem
 
 cp.out
