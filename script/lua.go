@@ -42,10 +42,14 @@ func NewLUAEngine(lines []string) (*LUAEngine, error) {
 		}
 
 		if len(fields) != 4 {
-			return nil, errors.New("expected 5 fields")
+			return nil, errors.New("expected 4 fields")
 		}
 
 		// TODO: validate hook fields[0]
+		hook, ok := stringToScriptHook[fields[0]]
+		if !ok {
+			return nil, errors.Errorf("unexpected script hook '%s'", fields[0])
+		}
 
 		// TODO: validate type fields[2]
 
@@ -53,7 +57,7 @@ func NewLUAEngine(lines []string) (*LUAEngine, error) {
 			FTPCommand: strings.ToLower(fields[1]),
 			Path:       fields[3],
 			// hardcoded for now
-			Hook: ScriptHookPre,
+			Hook: hook,
 		}
 
 		if _, ok := le.commands[c.FTPCommand]; !ok {
@@ -113,9 +117,9 @@ func (le *LUAEngine) Do(ctx context.Context, fields []string, hook ScriptHook, s
 		if len(fields) < 2 {
 			return nil
 		}
-		ftpCommand = strings.ToLower(strings.Join(fields[0:1], " "))
+		ftpCommand = strings.ToLower(strings.Join(fields[0:2], " "))
 		if len(fields) > 2 {
-			fields = fields[1:]
+			fields = fields[2:]
 		}
 	}
 
@@ -126,7 +130,7 @@ func (le *LUAEngine) Do(ctx context.Context, fields []string, hook ScriptHook, s
 	}
 
 	if _, ok := le.commands[ftpCommand]; !ok {
-		return nil
+		return ErrNotExist
 	}
 
 	errg, ctx := errgroup.WithContext(ctx)

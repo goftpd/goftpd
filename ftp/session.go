@@ -193,6 +193,10 @@ func (s *Session) reply(code int, message string) {
 }
 
 func (s *Session) Flush() error {
+	if len(s.buffer) == 0 {
+		return nil
+	}
+
 	defer func() {
 		s.code = 0
 		s.buffer = nil
@@ -318,18 +322,26 @@ func (s *Session) serve(ctx context.Context, server *Server, conn net.Conn) {
 // handleCommand takes in the client input in the form of a slice of strings
 // and tries to find and execute a command. can return an error
 func (session *Session) handleCommand(ctx context.Context, fields []string) error {
-	// TODO: ugly as sin
-	c, ok := cmd.CommandMap[strings.ToUpper(fields[0])]
-
 	defer func() {
 		if err := session.Flush(); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR session flush: %s", err)
 		}
-
 	}()
 
+	// TODO: ugly as sin
+	c, ok := cmd.CommandMap[strings.ToUpper(fields[0])]
+
 	if !ok {
-		session.ReplyStatus(cmd.StatusNotImplemented)
+		// check if we have a script that uses this command
+		err := session.server.se.Do(ctx, fields, script.ScriptHookCommand, session)
+
+		if err == script.ErrNotExist {
+			session.ReplyStatus(cmd.StatusNotImplemented)
+
+		} else if err != nil {
+			return err
+		}
+
 		return nil
 	}
 
@@ -347,7 +359,9 @@ func (session *Session) handleCommand(ctx context.Context, fields []string) erro
 
 	// pre command hook
 	if err := session.server.se.Do(ctx, fields, script.ScriptHookPre, session); err != nil {
-		return err
+		if err != script.ErrNotExist {
+			return err
+		}
 	}
 
 	if err := c.Execute(ctx, session, fields[1:]); err != nil {
@@ -364,7 +378,9 @@ func (session *Session) handleCommand(ctx context.Context, fields []string) erro
 
 	// post command hook
 	if err := session.server.se.Do(ctx, fields, script.ScriptHookPost, session); err != nil {
-		return err
+		if err != script.ErrNotExist {
+			return err
+		}
 	}
 
 	return nil
