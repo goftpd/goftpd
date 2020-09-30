@@ -111,12 +111,12 @@ func (s *Session) NewActiveDataConn(ctx context.Context, params string) error {
 func (s *Session) FS() vfs.VFS             { return s.server.fs }
 func (s *Session) Auth() acl.Authenticator { return s.server.auth }
 
-func (s *Session) User() (*acl.User, bool) {
+func (s *Session) User() *acl.User {
 	u, err := s.server.auth.GetUser(s.login)
 	if err != nil {
-		return nil, false
+		return nil
 	}
-	return u, true
+	return u
 }
 
 // Reset is used by sync.Pool and helps to minimise allocations
@@ -332,17 +332,20 @@ func (session *Session) handleCommand(ctx context.Context, fields []string) erro
 	c, ok := cmd.CommandMap[strings.ToUpper(fields[0])]
 
 	if !ok {
-		// check if we have a script that uses this command
-		err := session.server.se.Do(ctx, fields, script.ScriptHookCommand, session)
 
-		if err == script.ErrNotExist {
-			session.ReplyStatus(cmd.StatusNotImplemented)
+		// if logged in, check if we have a script that uses this command
+		if session.State() == cmd.SessionStateLoggedIn {
+			err := session.server.se.Do(ctx, fields, script.ScriptHookCommand, session)
 
-		} else if err != nil {
-			if err == script.ErrDontContinue {
-				return nil
+			if err == script.ErrNotExist {
+				session.ReplyStatus(cmd.StatusNotImplemented)
+
+			} else if err != nil {
+				if err == script.ErrDontContinue {
+					return nil
+				}
+				return err
 			}
-			return err
 		}
 
 		return nil

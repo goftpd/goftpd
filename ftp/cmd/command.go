@@ -100,7 +100,7 @@ type Session interface {
 	SetLogin(string)
 	Login() string
 
-	User() (*acl.User, bool)
+	User() *acl.User
 
 	LastCommand() string
 }

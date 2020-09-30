@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 )
 
 /*
@@ -30,10 +31,9 @@ func (c commandRNTO) Execute(ctx context.Context, s Session, params []string) er
 		return nil
 	}
 
-	user, ok := s.User()
-	if !ok {
-		s.ReplyStatus(StatusNotLoggedIn)
-		return nil
+	user := s.User()
+	if user == nil {
+		return errors.New("no user found")
 	}
 
 	oldpath := s.FS().Join(s.CWD(), s.RenameFrom())

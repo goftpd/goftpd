@@ -1,7 +1,7 @@
 local pzsng = require('site/scripts/pzsng')
 
-local user, ok = session:User()
-if not ok then
+local user = session:User()
+if user == nil then
 	-- return false to prevent continuation and cancel current contexts?
 	return false
 end

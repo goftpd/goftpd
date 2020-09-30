@@ -27,8 +27,8 @@ func (c commandQUIT) RequireParam() bool         { return true }
 func (c commandQUIT) RequireState() SessionState { return SessionStateAuth }
 
 func (c commandQUIT) Execute(ctx context.Context, s Session, params []string) error {
-	_, ok := s.User()
-	if !ok {
+	user := s.User()
+	if user == nil {
 		s.ReplyStatus(StatusNotLoggedIn)
 		return nil
 	}

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 )
 
 /*
@@ -25,10 +26,9 @@ func (c commandRMD) Execute(ctx context.Context, s Session, params []string) err
 
 	path := s.FS().Join(s.CWD(), params)
 
-	user, ok := s.User()
-	if !ok {
-		s.ReplyStatus(StatusNotLoggedIn)
-		return nil
+	user := s.User()
+	if user == nil {
+		return errors.New("no user found")
 	}
 
 	if err := s.FS().DeleteDir(path, user); err != nil {

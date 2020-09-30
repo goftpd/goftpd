@@ -10,12 +10,8 @@ if #params < 2 then
 	return false
 end
 
--- get current user
-local user, ok = session:User()
-if not ok then
-	session:Reply(530, "Not logged in.")
-	return false
-end
+-- get current user, dont check for nil as it will error anyway
+local user = session:User()
 
 -- get target user
 local target, err = session:Auth():GetUser(params[1])

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 )
@@ -34,10 +35,9 @@ func (c commandAPPE) Execute(ctx context.Context, s Session, params []string) er
 
 	path := s.FS().Join(s.CWD(), params)
 
-	user, ok := s.User()
-	if !ok {
-		s.ReplyStatus(StatusNotLoggedIn)
-		return nil
+	user := s.User()
+	if user == nil {
+		return errors.New("no user found")
 	}
 
 	if s.DataProtected() {

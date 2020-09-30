@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 )
 
@@ -41,10 +42,9 @@ func (c commandSTAT) Execute(ctx context.Context, s Session, params []string) er
 		return c.NoParams(s)
 	}
 
-	user, ok := s.User()
-	if !ok {
-		s.ReplyStatus(StatusNotLoggedIn)
-		return nil
+	user := s.User()
+	if user == nil {
+		return errors.New("no user found")
 	}
 
 	var options, path string
@@ -98,10 +98,9 @@ func (c commandSTAT) NoParams(s Session) error {
 		)
 	}
 
-	user, ok := s.User()
-	if !ok {
-		s.ReplyStatus(StatusNotLoggedIn)
-		return nil
+	user := s.User()
+	if user == nil {
+		return errors.New("no user found")
 	}
 
 	dataType := "ASCII"
