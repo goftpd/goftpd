@@ -27,10 +27,44 @@ type User struct {
 	LastLoginAt time.Time
 	DeletedAt   time.Time
 
-	// map of ident@ip matches against the time they were added
-	// potential to add TTL on ips here, or for maintenace (clean
-	// all ips older than x)
-	IPs map[string]time.Time
+	IPMasks []string
+}
+
+func (u *User) AddIP(mask string) bool {
+	mask = strings.ToLower(mask)
+
+	var match bool
+	for idx := range u.IPMasks {
+		if mask == u.IPMasks[idx] {
+			match = true
+			break
+		}
+	}
+	if match {
+		return false
+	}
+
+	u.IPMasks = append(u.IPMasks, mask)
+
+	return true
+}
+
+func (u *User) DeleteIP(mask string) bool {
+	mask = strings.ToLower(mask)
+
+	original := len(u.IPMasks)
+
+	var idx int
+	for _, m := range u.IPMasks {
+		if m != mask {
+			u.IPMasks[idx] = m
+			idx++
+		}
+	}
+
+	u.IPMasks = u.IPMasks[:idx]
+
+	return original != len(u.IPMasks)
 }
 
 // Used to satisfy the authenticator Entry interface

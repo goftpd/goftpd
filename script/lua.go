@@ -113,13 +113,17 @@ func (le *LUAEngine) compileFile(path string) error {
 func (le *LUAEngine) Do(ctx context.Context, fields []string, hook ScriptHook, session cmd.Session) error {
 	ftpCommand := strings.ToLower(fields[0])
 
+	// TODO:
+	// this is slightly inefficient as we do a lot of allocating here around fields
+	// before we check to see if we actually have this
+
 	if ftpCommand == "site" {
 		if len(fields) < 2 {
 			return nil
 		}
 		ftpCommand = strings.ToLower(strings.Join(fields[0:2], " "))
 		if len(fields) > 2 {
-			fields = fields[2:]
+			fields = fields[1:]
 		}
 	}
 
@@ -178,7 +182,7 @@ func (le *LUAEngine) Do(ctx context.Context, fields []string, hook ScriptHook, s
 
 			// if false dont continue, aka return an error
 			if !lua.LVAsBool(ret) {
-				return errors.Errorf("error in call to %s", c.Path)
+				return ErrDontContinue
 			}
 
 			return nil

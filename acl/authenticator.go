@@ -32,6 +32,7 @@ type Authenticator interface {
 
 	// save
 	// SaveUser(*User) error
+	UpdateUser(string, func(*User) error) error
 	SaveGroup(*Group) error
 
 	// delete
@@ -40,6 +41,7 @@ type Authenticator interface {
 
 	// utilities
 	CheckPassword(string, string) bool
+	// CheckIPMasks(string, string, int) bool
 	ChangePassword(string, string) error
 }
 

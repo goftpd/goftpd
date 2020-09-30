@@ -8,7 +8,8 @@ import (
 )
 
 var (
-	ErrNotExist = errors.New("does not exist")
+	ErrNotExist     = errors.New("does not exist")
+	ErrDontContinue = errors.New("dont continue")
 )
 
 type Engine interface {
