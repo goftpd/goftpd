@@ -27,9 +27,13 @@ end
 local err = session:Auth():UpdateUser(target.Name, function(u)
 	for i, mask in params() do
 		if i > 1 then
-			local ok = u:AddIP(mask)
-			if ok then
+			local err = u:AddIP(mask)
+			if err == nil then
 				session:Reply(226, "Added: " .. mask)
+			else 
+				session:Reply(501, "Unable to add mask '" .. mask .. "': " .. err:Error())
+				-- dont try add any more
+				return nil
 			end
 		end
 	end

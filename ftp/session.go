@@ -44,6 +44,9 @@ type Session struct {
 	currentDir string
 }
 
+// Control gets the underlying connection
+func (s *Session) Control() net.Conn { return s.control }
+
 // SetState sets the current state of the session
 func (s *Session) SetState(state cmd.SessionState) { s.state = state }
 
@@ -264,7 +267,7 @@ func (s *Session) serve(ctx context.Context, server *Server, conn net.Conn) {
 	defer func() {
 		if e := recover(); e != nil {
 			var buf bytes.Buffer
-			fmt.Fprintf(&buf, "Handler crashed with error: %v", e)
+			fmt.Fprintf(&buf, "Handler crashed with error: %v\n", e)
 
 			for i := 1; ; i++ {
 				_, file, line, ok := runtime.Caller(i)
@@ -276,7 +279,7 @@ func (s *Session) serve(ctx context.Context, server *Server, conn net.Conn) {
 				fmt.Fprintf(&buf, "%v:%v", file, line)
 			}
 
-			fmt.Fprintf(os.Stderr, "%s", buf.String())
+			fmt.Fprintf(os.Stderr, "%s\n", buf.String())
 		}
 		s.Close()
 	}()
@@ -286,7 +289,7 @@ func (s *Session) serve(ctx context.Context, server *Server, conn net.Conn) {
 
 	s.ReplyWithMessage(cmd.StatusServiceReady, "Welcome!")
 	if err := s.Flush(); err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR flush session welcome: %s", err)
+		fmt.Fprintf(os.Stderr, "ERROR flush session welcome: %s\n", err)
 		return
 	}
 
@@ -312,7 +315,7 @@ func (s *Session) serve(ctx context.Context, server *Server, conn net.Conn) {
 		}
 
 		if err := s.handleCommand(ctx, fields); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR handleCommand: %s", err)
+			fmt.Fprintf(os.Stderr, "ERROR handleCommand: %s\n", err)
 			break
 		}
 
@@ -324,7 +327,7 @@ func (s *Session) serve(ctx context.Context, server *Server, conn net.Conn) {
 func (session *Session) handleCommand(ctx context.Context, fields []string) error {
 	defer func() {
 		if err := session.Flush(); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR session flush: %s", err)
+			fmt.Fprintf(os.Stderr, "ERROR session flush: %s\n", err)
 		}
 	}()
 

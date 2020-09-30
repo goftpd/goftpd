@@ -2,9 +2,16 @@ package acl
 
 import (
 	"bytes"
+	"fmt"
+	"net"
+	"os"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/dgraph-io/badger/v2"
+	"github.com/gobwas/glob"
+	"github.com/oragono/go-ident"
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -41,7 +48,7 @@ type Authenticator interface {
 
 	// utilities
 	CheckPassword(string, string) bool
-	// CheckIPMasks(string, string, int) bool
+	CheckIP(string, net.Addr, net.Addr) bool
 	ChangePassword(string, string) error
 }
 
@@ -267,4 +274,100 @@ func (a *BadgerAuthenticator) CheckPassword(name, pass string) bool {
 // ChangePassword changes the password for the User
 func (a *BadgerAuthenticator) ChangePassword(user, pass string) error {
 	return errors.New("stub")
+}
+
+// CheckIPMask checks that the user ia authorised on the connecting ip / port
+func (a *BadgerAuthenticator) CheckIP(name string, laddr, raddr net.Addr) bool {
+	u, err := a.GetUser(name)
+	if err != nil {
+		// all these instances of just returning false might warrent an err
+		// even if its just a log
+		return false
+	}
+
+	// parse addresses
+	_, lportStr, err := net.SplitHostPort(laddr.String())
+	if err != nil {
+		return false
+	}
+
+	lport, err := strconv.Atoi(lportStr)
+	if err != nil {
+		return false
+	}
+
+	host, rportStr, err := net.SplitHostPort(raddr.String())
+	if err != nil {
+		return false
+	}
+
+	rport, err := strconv.Atoi(rportStr)
+	if err != nil {
+		return false
+	}
+
+	// check all masks with a '*' to save us doing an ident lookup
+	for idx := range u.IPMasks {
+		parts := strings.Split(u.IPMasks[idx], "@")
+		if len(parts) != 2 {
+			continue
+		}
+
+		if parts[0] != "*" {
+			continue
+		}
+
+		// bit inefficient, but im sure we will survive. can optimise later TM
+		m, err := glob.Compile(parts[1], '.')
+		if err != nil {
+			fmt.Fprintf(
+				os.Stderr,
+				"ERROR compiling mask %d for user %s\n",
+				idx, u.Name,
+			)
+			continue
+		}
+
+		if m.Match(host) {
+			return true
+		}
+	}
+
+	ident, err := ident.Query(host, lport, rport, 10)
+	if err != nil {
+		fmt.Fprintf(
+			os.Stderr,
+			"ERROR querying ident for %s:%d from :%d: %s\n",
+			host, rport, lport, err,
+		)
+		return false
+	}
+
+	identifier := strings.ToLower(ident.Identifier)
+
+	for idx := range u.IPMasks {
+		parts := strings.Split(u.IPMasks[idx], "@")
+		if len(parts) != 2 {
+			continue
+		}
+		if strings.ToLower(parts[0]) != identifier || parts[0] == "*" {
+			continue
+		}
+		// bit inefficient, but im sure we will survive. can optimise later TM
+		m, err := glob.Compile(parts[1], '.')
+		if err != nil {
+			fmt.Fprintf(
+				os.Stderr,
+				"ERROR compiling mask %d for user %s\n",
+				idx, u.Name,
+			)
+			continue
+		}
+
+		if m.Match(host) {
+			return true
+		}
+	}
+
+	return false
 }

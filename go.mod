@@ -8,6 +8,7 @@ require (
 	github.com/go-git/go-billy/v5 v5.0.0
 	github.com/gobwas/glob v0.2.3
 	github.com/jawr/go-billy v3.1.0+incompatible
+	github.com/oragono/go-ident v0.0.0-20200511222032-830550b1d775
 	github.com/pkg/errors v0.9.1
 	github.com/segmentio/fasthash v1.0.3
 	github.com/spf13/cobra v0.0.5

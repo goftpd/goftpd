@@ -42,6 +42,16 @@ func (c commandPASS) Execute(ctx context.Context, s Session, params []string) er
 		return nil
 	}
 
+	conn := s.Control()
+	laddr := conn.LocalAddr()
+	raddr := conn.RemoteAddr()
+
+	if !s.Auth().CheckIP(s.Login(), laddr, raddr) {
+		s.SetLogin("")
+		s.ReplyStatus(StatusNotLoggedIn)
+		return nil
+	}
+
 	s.ReplyWithArgs(StatusUserLoggedIn, fmt.Sprintf("Welcome back %s!", s.Login()))
 
 	s.SetState(SessionStateLoggedIn)

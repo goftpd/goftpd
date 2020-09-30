@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 
 	"github.com/goftpd/goftpd/acl"
 	"github.com/goftpd/goftpd/vfs"
@@ -72,13 +73,16 @@ type Session interface {
 	FS() vfs.VFS
 	Auth() acl.Authenticator
 
+	// control
+	Control() net.Conn
+
 	// data
 	Data() DataConn
 	ClearData()
 	NewPassiveDataConn(context.Context) error
 	NewActiveDataConn(context.Context, string) error
 
-	// state
+	// state do we want to store this inside the context?
 	State() SessionState
 	SetState(SessionState)
 

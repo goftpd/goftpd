@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/gobwas/glob"
+	"github.com/pkg/errors"
 )
 
 type User struct {
@@ -30,23 +33,38 @@ type User struct {
 	IPMasks []string
 }
 
-func (u *User) AddIP(mask string) bool {
+func (u *User) AddIP(mask string) error {
 	mask = strings.ToLower(mask)
 
-	var match bool
+	parts := strings.Split(mask, "@")
+	if len(parts) != 2 {
+		return errors.New("does not contain a '@'")
+	}
+
+	// check we can compile the glob
+	_, err := glob.Compile(parts[0], '.')
+	if err != nil {
+		return errors.New("mask is not a valid 'glob'")
+	}
+
+	// TODO
+	// not sure how to validate an octet string
+	// here
+
+	// TODO
+	// minimum security needs to be checked, will need
+	// to make this a private function called via Auth which
+	// passes through a config/the minimum security details
+
 	for idx := range u.IPMasks {
 		if mask == u.IPMasks[idx] {
-			match = true
-			break
+			return errors.New("mask already exists")
 		}
-	}
-	if match {
-		return false
 	}
 
 	u.IPMasks = append(u.IPMasks, mask)
 
-	return true
+	return nil
 }
 
 func (u *User) DeleteIP(mask string) bool {
