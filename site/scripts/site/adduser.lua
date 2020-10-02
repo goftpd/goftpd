@@ -1,27 +1,32 @@
 -- check we have params
 if not params then
-	session:Reply(501, "Syntax: site addip <user> <mask> <...mask>")
+	session:Reply(501, "Syntax: site adduser <user> <password> <mask> <...mask>")
 	return false
 end
 
 -- site addip <user> <mask> <...mask>
-if #params < 2 then
-	session:Reply(501, "Syntax: site addip <user> <mask> <...mask>")
+if #params < 3 then
+	session:Reply(501, "Syntax: site adduser <user> <password> <mask> <...mask>")
 	return false
 end
 
 -- get current user, dont check for nil as it will error anyway
 local user = session:User()
 
--- get target user
+-- make sure the user doesnt exist
 local target, err = session:Auth():GetUser(params[1])
-if err then
-	session:Reply(500, "Error: " .. err:Error())
+if err == nil then
+	session:Reply(500, "Error: " .. err.Error())
 	return false
 end
 
--- TODO
--- validate that this user is allowed to do addip for target
+target, err = session:Auth():AddUser(params[1], params[2])
+if err then
+	session:Reply(500, "Error: " .. err.Error())
+	return false
+end
+
+session:Reply(226, "Created user '" .. params[1] .. "'")
 
 -- update the user adding each mask
 local err = session:Auth():UpdateUser(target.Name, function(u)
@@ -45,3 +50,4 @@ if err ~= nil then
 end
 
 return true
+

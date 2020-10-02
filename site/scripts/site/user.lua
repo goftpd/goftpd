@@ -3,15 +3,20 @@ if #params ~= 1 then
 	return false
 end
 
-local user, err = session:Auth():GetUser(params[1])
-if err then
-	session:Reply(500, "Error: " .. err:Error())
+local caller = session:User()
+
+-- ignore err as we dont want to leak if the user exists 
+-- or not to the caller and MatchTarget checks for nil
+local target, err = session:Auth():GetUser(params[1])
+
+if not acl:MatchTarget(caller, target) then
+	session:Reply(500, "Permission denied")
 	return false
 end
 
-session:Reply(226, "User: " .. user.Name)
+session:Reply(226, "User: " .. target.Name)
 
-for i, v in user.IPMasks() do
+for i, v in target.IPMasks() do
 	session:Reply(226, "Mask [" .. i .. "]: " .. v)
 end
 

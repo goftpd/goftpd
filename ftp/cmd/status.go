@@ -46,4 +46,5 @@ var (
 	StatusPageTypeUnknown                = Status{551, "Requested action aborted. Page type unknown."}
 	StatusNoDiskFree                     = Status{452, "Requested action not taken. Insufficient storage space in system. File unavailable (e.g., file busy)."}
 	StatusBadFilename                    = Status{553, "Requested action not taken. File name not allowed."}
+	StatusPermissionDenied               = Status{550, "Permission denied"}
 )

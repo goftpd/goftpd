@@ -318,7 +318,6 @@ func (s *Session) serve(ctx context.Context, server *Server, conn net.Conn) {
 			fmt.Fprintf(os.Stderr, "ERROR handleCommand: %s\n", err)
 			break
 		}
-
 	}
 }
 
@@ -342,11 +341,10 @@ func (session *Session) handleCommand(ctx context.Context, fields []string) erro
 
 			if err == script.ErrNotExist {
 				session.ReplyStatus(cmd.StatusNotImplemented)
+			} else if err == script.ErrStop {
+				return nil
 
 			} else if err != nil {
-				if err == script.ErrDontContinue {
-					return nil
-				}
 				return err
 			}
 		}
@@ -369,7 +367,7 @@ func (session *Session) handleCommand(ctx context.Context, fields []string) erro
 	// pre command hook
 	if err := session.server.se.Do(ctx, fields, script.ScriptHookPre, session); err != nil {
 		if err != script.ErrNotExist {
-			if err == script.ErrDontContinue {
+			if err == script.ErrStop {
 				return nil
 			}
 			return err
@@ -391,7 +389,7 @@ func (session *Session) handleCommand(ctx context.Context, fields []string) erro
 	// post command hook
 	if err := session.server.se.Do(ctx, fields, script.ScriptHookPost, session); err != nil {
 		if err != script.ErrNotExist {
-			if err == script.ErrDontContinue {
+			if err == script.ErrStop {
 				return nil
 			}
 			return err

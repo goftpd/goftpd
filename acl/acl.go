@@ -18,7 +18,9 @@ var ErrBadInput = errors.New("bad input")
 // users and group. Provides utilities for checking if the collection
 // contains a provided entity
 type collection struct {
-	all bool
+	all    bool
+	self   bool
+	gadmin bool
 
 	users  []string
 	groups []string
@@ -114,11 +116,20 @@ func NewFromString(s string) (*ACL, error) {
 			c.groups = append(c.groups, f)
 
 		default:
-			if f != "*" {
+
+			// special acl keywords
+			switch f {
+			case "self":
+				c.self = true
+			case "gadmin":
+				c.gadmin = true
+			case "*":
+				c.all = true
+
+			default:
 				return nil, errors.Errorf("unexpected string in acl input: '%s'", f)
 			}
 
-			c.all = true
 		}
 
 	}
@@ -147,28 +158,33 @@ func (c *collection) hasGroup(g string) bool {
 	return c.has(c.groups, g)
 }
 
-// UserMatch checks to see if given User is allowed or blocked. Default is to
-// block access
-func (a *ACL) Match(u *User) bool {
-	// check blocked lists
-	if a.blocked.hasUser(u.Name) {
+func (a *ACL) MatchTarget(caller, target *User) bool {
+	if caller == nil || target == nil {
 		return false
 	}
 
-	for group := range u.Groups {
-		if a.blocked.hasGroup(group) {
+	if a.allowed.self && caller.Name == target.Name {
+		if a.allowed.self {
+			return true
+		} else if a.blocked.self {
 			return false
 		}
 	}
 
-	// check allowed lists
-	if a.allowed.hasUser(u.Name) {
-		return true
-	}
-
-	for group := range u.Groups {
-		if a.allowed.hasGroup(group) {
-			return true
+	// check group settings
+	if a.allowed.gadmin || a.blocked.gadmin {
+		for group := range target.Groups {
+			// if caller has that group and is a gadmin, return appropriate
+			// acl action
+			if settings, ok := caller.Groups[group]; ok {
+				if settings.IsAdmin {
+					if a.allowed.gadmin {
+						return true
+					} else if a.blocked.gadmin {
+						return false
+					}
+				}
+			}
 		}
 	}
 
@@ -177,5 +193,53 @@ func (a *ACL) Match(u *User) bool {
 		return false
 	}
 
+	return a.allowed.all
+}
+
+// ExplicitMatch same as Match but must explicitly match
+func (a *ACL) ExplicitMatch(u *User) (bool, bool) {
+	// check blocked lists
+	if a.blocked.hasUser(u.Name) {
+		return false, true
+	}
+
+	for group := range u.Groups {
+		if a.blocked.hasGroup(group) {
+			return false, true
+		}
+	}
+
+	// check allowed lists
+	if a.allowed.hasUser(u.Name) {
+		return true, true
+	}
+
+	for group := range u.Groups {
+		if a.allowed.hasGroup(group) {
+			return true, true
+		}
+	}
+
+	// fall back to catchalls '*' '!*'
+	if a.blocked.all {
+		return false, true
+	}
+
+	if a.allowed.all {
+		return true, true
+	}
+
+	return false, false
+}
+
+// UserMatch checks to see if given User is allowed or blocked. Default is to
+// block access
+func (a *ACL) Match(u *User) bool {
+	t, ok := a.ExplicitMatch(u)
+	if ok {
+		return t
+	}
+
+	// fallback
 	return a.allowed.all
 }

@@ -3,13 +3,14 @@ package script
 import (
 	"context"
 
+	"github.com/goftpd/goftpd/acl"
 	"github.com/goftpd/goftpd/ftp/cmd"
 	"github.com/pkg/errors"
 )
 
 var (
-	ErrNotExist     = errors.New("does not exist")
-	ErrDontContinue = errors.New("dont continue")
+	ErrNotExist = errors.New("does not exist")
+	ErrStop     = errors.New("stop")
 )
 
 type Engine interface {
@@ -37,9 +38,15 @@ const (
 	ScriptTypeEvent              = "event"
 )
 
+var stringToScriptType = map[string]ScriptType{
+	string(ScriptTypeTrigger): ScriptTypeTrigger,
+	string(ScriptTypeEvent):   ScriptTypeEvent,
+}
+
 type Command struct {
 	FTPCommand string
 	Hook       ScriptHook
 	ScriptType ScriptType
 	Path       string
+	ACL        *acl.ACL
 }

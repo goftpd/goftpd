@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/goftpd/goftpd/acl"
 	"github.com/goftpd/goftpd/ftp/cmd"
 	"github.com/pkg/errors"
 	lua "github.com/yuin/gopher-lua"
@@ -41,23 +42,31 @@ func NewLUAEngine(lines []string) (*LUAEngine, error) {
 			return nil, err
 		}
 
-		if len(fields) != 4 {
-			return nil, errors.New("expected 4 fields")
+		if len(fields) < 5 {
+			return nil, errors.New("expected at least 5 fields")
 		}
 
-		// TODO: validate hook fields[0]
 		hook, ok := stringToScriptHook[fields[0]]
 		if !ok {
 			return nil, errors.Errorf("unexpected script hook '%s'", fields[0])
 		}
 
-		// TODO: validate type fields[2]
+		stype, ok := stringToScriptType[fields[2]]
+		if !ok {
+			return nil, errors.Errorf("unexpected script type '%s'", fields[2])
+		}
+
+		a, err := acl.NewFromString(strings.Join(fields[4:], " "))
+		if err != nil {
+			return nil, errors.Errorf("unable to parse acl '%s': %s", strings.Join(fields[4:], " "), err)
+		}
 
 		c := Command{
 			FTPCommand: strings.ToLower(fields[1]),
 			Path:       fields[3],
-			// hardcoded for now
-			Hook: hook,
+			Hook:       hook,
+			ScriptType: stype,
+			ACL:        a,
 		}
 
 		if _, ok := le.commands[c.FTPCommand]; !ok {
@@ -137,6 +146,8 @@ func (le *LUAEngine) Do(ctx context.Context, fields []string, hook ScriptHook, s
 		return ErrNotExist
 	}
 
+	// TODO
+	// wrap context with a deadline
 	errg, ctx := errgroup.WithContext(ctx)
 
 	for _, c := range le.commands[ftpCommand] {
@@ -150,6 +161,21 @@ func (le *LUAEngine) Do(ctx context.Context, fields []string, hook ScriptHook, s
 		if !ok {
 			return errors.New("script not found")
 		}
+
+		// check permissions
+		user := session.User()
+		if user == nil {
+			return errors.New("user is nil")
+		}
+
+		if m, ok := c.ACL.ExplicitMatch(user); !m && ok {
+			session.ReplyStatus(cmd.StatusPermissionDenied)
+			return ErrStop
+		}
+
+		// IMPORTANT
+		// you have to also check MatchTarget to check for self and gadmin actions
+		// but script is responsible for this
 
 		// TODO: decide how to handle events probably just go without errg
 
@@ -168,6 +194,7 @@ func (le *LUAEngine) Do(ctx context.Context, fields []string, hook ScriptHook, s
 			L.SetGlobal("ftpCommand", luar.New(L, ftpCommand))
 			L.SetGlobal("params", luar.New(L, fields))
 			L.SetGlobal("session", luar.New(L, session))
+			L.SetGlobal("acl", luar.New(L, c.ACL))
 
 			if err := L.PCall(0, 1, nil); err != nil {
 				return err
@@ -182,7 +209,7 @@ func (le *LUAEngine) Do(ctx context.Context, fields []string, hook ScriptHook, s
 
 			// if false dont continue, aka return an error
 			if !lua.LVAsBool(ret) {
-				return ErrDontContinue
+				return ErrStop
 			}
 
 			return nil
