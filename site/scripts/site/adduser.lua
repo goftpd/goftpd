@@ -16,7 +16,7 @@ local user = session:User()
 -- make sure the user doesnt exist
 local target, err = session:Auth():GetUser(params[1])
 if err == nil then
-	session:Reply(500, "Error: " .. err.Error())
+	session:Reply(500, "User '" .. params[1] .. "' already exists")
 	return false
 end
 
