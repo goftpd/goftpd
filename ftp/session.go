@@ -227,7 +227,7 @@ func (s *Session) Flush() error {
 		}
 	}
 
-	if len(s.buffer) > 2 {
+	if len(s.buffer) > 1 {
 		if _, err := b.WriteString(fmt.Sprintf("%d End.", s.code)); err != nil {
 			return cmd.NewFatalError(err)
 		}
