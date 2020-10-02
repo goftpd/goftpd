@@ -188,12 +188,8 @@ func (a *ACL) MatchTarget(caller, target *User) bool {
 		}
 	}
 
-	// fall back to catchalls '*' '!*'
-	if a.blocked.all {
-		return false
-	}
-
-	return a.allowed.all
+	// fall back to match
+	return a.Match(caller)
 }
 
 // ExplicitMatch same as Match but must explicitly match

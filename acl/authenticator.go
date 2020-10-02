@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/dgraph-io/badger/v2"
 	"github.com/gobwas/glob"
@@ -36,6 +37,7 @@ type Authenticator interface {
 	// get
 	GetUser(string) (*User, error)
 	GetGroup(string) (*Group, error)
+	GetUsers() ([]*User, error)
 
 	// save
 	// SaveUser(*User) error
@@ -139,6 +141,7 @@ func (a *BadgerAuthenticator) AddUser(name, pass string) (*User, error) {
 
 	u.Name = name
 	u.Password = hashed
+	u.CreatedAt = time.Now()
 
 	if err := a.encodeAndUpdate(u); err != nil {
 		return nil, err
@@ -182,6 +185,46 @@ func (a *BadgerAuthenticator) GetUser(name string) (*User, error) {
 	}
 
 	return &u, nil
+}
+
+func (a *BadgerAuthenticator) GetUsers() ([]*User, error) {
+	var users []*User
+
+	err := a.db.View(func(tx *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+
+		opts.PrefetchSize = 10
+		opts.Prefix = []byte("users:")
+		it := tx.NewIterator(opts)
+		defer it.Close()
+
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+
+			return item.Value(func(val []byte) error {
+				dec := msgpack.GetDecoder()
+				defer msgpack.PutDecoder(dec)
+
+				dec.ResetBytes(val)
+
+				var u User
+
+				if err := dec.Decode(&u); err != nil {
+					return err
+				}
+
+				users = append(users, &u)
+
+				return nil
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return users, nil
 }
 
 // GetGroup attempts to retrieve a Group from the store using the name

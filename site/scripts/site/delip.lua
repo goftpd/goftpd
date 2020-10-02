@@ -11,17 +11,16 @@ if #params < 2 then
 end
 
 -- get current user
-local user = session:User()
+local caller = session:User()
 
 -- get target user
 local target, err = session:Auth():GetUser(params[1])
-if err then
-	session:Reply(500, "Error: " .. err:Error())
+
+-- check permissions
+if not acl:MatchTarget(caller, target) then
+	session:Reply(500, "Permission denied")
 	return false
 end
-
--- TODO
--- validate that this user is allowed to do delip for target
 
 -- update the user deling each mask
 local err = session:Auth():UpdateUser(target.Name, function(u)

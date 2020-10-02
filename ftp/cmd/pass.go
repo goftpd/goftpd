@@ -3,6 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"github.com/goftpd/goftpd/acl"
 )
 
 /*
@@ -52,7 +55,30 @@ func (c commandPASS) Execute(ctx context.Context, s Session, params []string) er
 		return nil
 	}
 
+	user, err := s.Auth().GetUser(s.Login())
+	if err != nil {
+		s.SetLogin("")
+		s.ReplyStatus(StatusNotLoggedIn)
+		return nil
+	}
+
+	if !user.DeletedAt.IsZero() {
+		s.SetLogin("")
+		s.ReplyStatus(StatusNotLoggedIn)
+		return nil
+	}
+
 	s.ReplyWithArgs(StatusUserLoggedIn, fmt.Sprintf("Welcome back %s!", s.Login()))
+
+	err = s.Auth().UpdateUser(s.Login(), func(u *acl.User) error {
+		u.LastLoginAt = time.Now()
+		return nil
+	})
+	if err != nil {
+		s.SetLogin("")
+		s.ReplyStatus(StatusNotLoggedIn)
+		return err
+	}
 
 	s.SetState(SessionStateLoggedIn)
 

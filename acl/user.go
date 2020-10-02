@@ -33,12 +33,27 @@ type User struct {
 	IPMasks []string
 }
 
+// Delete sets DeletedAt (convenience for scripts)
+func (u *User) Delete() {
+	u.DeletedAt = time.Now()
+}
+
+// Readd sets DeletedAt to nil (convenience for scripts)
+func (u *User) Readd() {
+	u.DeletedAt = time.Time{}
+}
+
+// AddIP attempts to validate and add an IP mask to a user
 func (u *User) AddIP(mask string) error {
 	mask = strings.ToLower(mask)
 
 	parts := strings.Split(mask, "@")
 	if len(parts) != 2 {
 		return errors.New("does not contain a '@'")
+	}
+
+	if len(strings.Split(parts[1], ".")) != 4 {
+		return errors.New("require 4 octets, '*' does not work across octets.")
 	}
 
 	// check we can compile the glob
@@ -67,6 +82,7 @@ func (u *User) AddIP(mask string) error {
 	return nil
 }
 
+// DeleteIP deletes the IP mask (if it exists) from the user
 func (u *User) DeleteIP(mask string) bool {
 	mask = strings.ToLower(mask)
 

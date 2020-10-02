@@ -133,15 +133,14 @@ func (le *LUAEngine) Do(pctx context.Context, fields []string, hook ScriptHook, 
 			return nil
 		}
 		ftpCommand = strings.ToLower(strings.Join(fields[0:2], " "))
-		if len(fields) > 2 {
-			fields = fields[1:]
-		}
-	}
-
-	if len(fields) > 1 {
-		fields = fields[1:]
+		fields = fields[2:]
 	} else {
-		fields = []string{}
+
+		if len(fields) > 1 {
+			fields = fields[1:]
+		} else {
+			fields = []string{}
+		}
 	}
 
 	if _, ok := le.commands[ftpCommand]; !ok {

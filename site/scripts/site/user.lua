@@ -16,8 +16,10 @@ end
 
 session:Reply(226, "User: " .. target.Name)
 
-for i, v in target.IPMasks() do
-	session:Reply(226, "Mask [" .. i .. "]: " .. v)
+if target.IPMasks ~= nil then
+	for i, v in target.IPMasks() do
+		session:Reply(226, "Mask [" .. i .. "]: " .. v)
+	end
 end
 
 return true

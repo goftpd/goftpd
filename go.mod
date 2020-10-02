@@ -12,6 +12,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/segmentio/fasthash v1.0.3
 	github.com/spf13/cobra v0.0.5
+	github.com/vadv/gopher-lua-libs v0.1.1
 	github.com/vmihailenco/msgpack v4.0.4+incompatible
 	github.com/vmihailenco/msgpack/v5 v5.0.0-beta.1
 	github.com/yargevad/filepathx v0.0.0-20161019152617-907099cb5a62

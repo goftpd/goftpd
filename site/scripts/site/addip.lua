@@ -11,7 +11,7 @@ if #params < 2 then
 end
 
 -- get current user, dont check for nil as it will error anyway
-local user = session:User()
+local caller = session:User()
 
 -- get target user
 local target, err = session:Auth():GetUser(params[1])
@@ -20,8 +20,11 @@ if err then
 	return false
 end
 
--- TODO
--- validate that this user is allowed to do addip for target
+-- check permissions
+if not acl:MatchTarget(caller, target) then
+	session:Reply(500, "Permission denied")
+	return false
+end
 
 -- update the user adding each mask
 local err = session:Auth():UpdateUser(target.Name, function(u)

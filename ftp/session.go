@@ -115,6 +115,10 @@ func (s *Session) FS() vfs.VFS             { return s.server.fs }
 func (s *Session) Auth() acl.Authenticator { return s.server.auth }
 
 func (s *Session) User() *acl.User {
+	if s.state != cmd.SessionStateLoggedIn {
+		return nil
+	}
+
 	u, err := s.server.auth.GetUser(s.login)
 	if err != nil {
 		return nil
@@ -362,6 +366,13 @@ func (session *Session) handleCommand(ctx context.Context, fields []string) erro
 			session.ReplyStatus(cmd.StatusNotImplemented)
 		}
 		return nil
+	}
+
+	if session.State() == cmd.SessionStateLoggedIn {
+		user := session.User()
+		if user == nil || !user.DeletedAt.IsZero() {
+			return errors.New("deleted user")
+		}
 	}
 
 	// pre command hook
