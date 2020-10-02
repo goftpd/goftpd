@@ -40,7 +40,10 @@ const (
 
 var stringToScriptType = map[string]ScriptType{
 	string(ScriptTypeTrigger): ScriptTypeTrigger,
-	string(ScriptTypeEvent):   ScriptTypeEvent,
+	// TODO
+	// events dont work as expected as some ftp clients (filezilla) cant parse
+	// multi line PASV. also need to be careful about session becomming nil.
+	// string(ScriptTypeEvent):   ScriptTypeEvent,
 }
 
 type Command struct {

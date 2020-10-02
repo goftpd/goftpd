@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"context"
 	"encoding/csv"
+	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/goftpd/goftpd/acl"
 	"github.com/goftpd/goftpd/ftp/cmd"
@@ -119,7 +121,7 @@ func (le *LUAEngine) compileFile(path string) error {
 
 // Do takes in a context path to the script and a cmd.Session and tries to execute the
 // script
-func (le *LUAEngine) Do(ctx context.Context, fields []string, hook ScriptHook, session cmd.Session) error {
+func (le *LUAEngine) Do(pctx context.Context, fields []string, hook ScriptHook, session cmd.Session) error {
 	ftpCommand := strings.ToLower(fields[0])
 
 	// TODO:
@@ -148,7 +150,7 @@ func (le *LUAEngine) Do(ctx context.Context, fields []string, hook ScriptHook, s
 
 	// TODO
 	// wrap context with a deadline
-	errg, ctx := errgroup.WithContext(ctx)
+	errg, ctx := errgroup.WithContext(pctx)
 
 	for _, c := range le.commands[ftpCommand] {
 
@@ -177,43 +179,55 @@ func (le *LUAEngine) Do(ctx context.Context, fields []string, hook ScriptHook, s
 		// you have to also check MatchTarget to check for self and gadmin actions
 		// but script is responsible for this
 
-		// TODO: decide how to handle events probably just go without errg
+		fn := func(ctx context.Context) func() error {
+			return func() error {
+				L := lua.NewState()
+				defer L.Close()
 
-		errg.Go(func() error {
+				// TODO: do we need to use context as it degrades performance quite a lot
+				// although we could cancel all the concurrent scripts with it also :/
+				L.SetContext(ctx)
 
-			L := lua.NewState()
-			defer L.Close()
+				// push byte code
+				L.Push(L.NewFunctionFromProto(proto))
 
-			// TODO: do we need to use context as it degrades performance quite a lot
-			// although we could cancel all the concurrent scripts with it also :/
-			L.SetContext(ctx)
+				L.SetGlobal("ftpCommand", luar.New(L, ftpCommand))
+				L.SetGlobal("params", luar.New(L, fields))
+				L.SetGlobal("session", luar.New(L, session))
+				L.SetGlobal("acl", luar.New(L, c.ACL))
 
-			// push byte code
-			L.Push(L.NewFunctionFromProto(proto))
+				if err := L.PCall(0, 1, nil); err != nil {
+					return err
+				}
 
-			L.SetGlobal("ftpCommand", luar.New(L, ftpCommand))
-			L.SetGlobal("params", luar.New(L, fields))
-			L.SetGlobal("session", luar.New(L, session))
-			L.SetGlobal("acl", luar.New(L, c.ACL))
+				ret := L.Get(-1)
+				L.Pop(1)
 
-			if err := L.PCall(0, 1, nil); err != nil {
-				return err
+				if ret.Type() != lua.LTBool {
+					return errors.Errorf("expected bool in return to %s", c.Path)
+				}
+
+				// if false dont continue, aka return an error
+				if !lua.LVAsBool(ret) {
+					return ErrStop
+				}
+
+				return nil
 			}
+		}
 
-			ret := L.Get(-1)
-			L.Pop(1)
+		if c.ScriptType == ScriptTypeEvent {
+			// add a deadline and then call
+			ctx, _ := context.WithTimeout(pctx, time.Second*60)
+			go func(ctx context.Context, ftpCommand, path string) {
+				if err := fn(ctx)(); err != nil {
+					fmt.Fprintf(os.Stderr, "ERROR event '%s' '%s': %s", ftpCommand, path, err)
+				}
+			}(ctx, ftpCommand, c.Path)
 
-			if ret.Type() != lua.LTBool {
-				return errors.Errorf("expected bool in return to %s", c.Path)
-			}
-
-			// if false dont continue, aka return an error
-			if !lua.LVAsBool(ret) {
-				return ErrStop
-			}
-
-			return nil
-		})
+		} else {
+			errg.Go(fn(ctx))
+		}
 	}
 
 	if err := errg.Wait(); err != nil {
