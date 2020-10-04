@@ -36,11 +36,11 @@ type Authenticator interface {
 
 	// get
 	GetUser(string) (*User, error)
-	GetGroup(string) (*Group, error)
 	GetUsers() ([]*User, error)
+	GetGroup(string) (*Group, error)
+	GetGroups() ([]*Group, error)
 
 	// save
-	// SaveUser(*User) error
 	UpdateUser(string, func(*User) error) error
 	UpdateGroup(string, func(*Group) error) error
 
@@ -57,6 +57,7 @@ type Authenticator interface {
 // Entry describes an Authenticator Entry
 type Entry interface {
 	Key() []byte
+	SetUpdatedAt()
 }
 
 // BadgerAuthenticator implements an Authenticator using a badge key/value store
@@ -78,44 +79,46 @@ func NewBadgerAuthenticator(db *badger.DB) *BadgerAuthenticator {
 	}
 }
 
-func (a *BadgerAuthenticator) encodeAndUpdate(e Entry) error {
-	return a.db.Update(func(tx *badger.Txn) error {
-		enc := msgpack.GetEncoder()
-		defer msgpack.PutEncoder(enc)
+func (a *BadgerAuthenticator) encodeAndUpdate(tx *badger.Txn, e Entry) error {
+	e.SetUpdatedAt()
 
-		b := a.bufferPool.Get().(*bytes.Buffer)
-		b.Reset()
-		defer a.bufferPool.Put(b)
+	enc := msgpack.GetEncoder()
+	defer msgpack.PutEncoder(enc)
 
-		enc.Reset(b)
+	b := a.bufferPool.Get().(*bytes.Buffer)
+	b.Reset()
+	defer a.bufferPool.Put(b)
 
-		if err := enc.Encode(e); err != nil {
-			return err
-		}
+	enc.Reset(b)
 
-		return tx.Set(e.Key(), b.Bytes())
-	})
+	if err := enc.Encode(e); err != nil {
+		return err
+	}
+
+	return tx.Set(e.Key(), b.Bytes())
 }
 
-func (a *BadgerAuthenticator) getAndDecode(key []byte, e Entry) error {
-	return a.db.View(func(tx *badger.Txn) error {
-		item, err := tx.Get(key)
-		if err != nil {
+func (a *BadgerAuthenticator) getAndDecode(tx *badger.Txn, key []byte, e Entry) error {
+	item, err := tx.Get(key)
+	if err != nil {
+		return err
+	}
+
+	return a.decode(item, e)
+}
+
+func (a *BadgerAuthenticator) decode(item *badger.Item, e Entry) error {
+	return item.Value(func(val []byte) error {
+		dec := msgpack.GetDecoder()
+		defer msgpack.PutDecoder(dec)
+
+		dec.ResetBytes(val)
+
+		if err := dec.Decode(e); err != nil {
 			return err
 		}
 
-		return item.Value(func(val []byte) error {
-			dec := msgpack.GetDecoder()
-			defer msgpack.PutDecoder(dec)
-
-			dec.ResetBytes(val)
-
-			if err := dec.Decode(e); err != nil {
-				return err
-			}
-
-			return nil
-		})
+		return nil
 	})
 }
 
@@ -143,7 +146,10 @@ func (a *BadgerAuthenticator) AddUser(name, pass string) (*User, error) {
 	u.Password = hashed
 	u.CreatedAt = time.Now()
 
-	if err := a.encodeAndUpdate(u); err != nil {
+	err = a.db.Update(func(tx *badger.Txn) error {
+		return a.encodeAndUpdate(tx, u)
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -167,7 +173,10 @@ func (a *BadgerAuthenticator) AddGroup(name string) (*Group, error) {
 	g.Name = name
 	g.CreatedAt = time.Now()
 
-	if err := a.encodeAndUpdate(g); err != nil {
+	err = a.db.Update(func(tx *badger.Txn) error {
+		return a.encodeAndUpdate(tx, g)
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -176,16 +185,19 @@ func (a *BadgerAuthenticator) AddGroup(name string) (*Group, error) {
 
 // GetUser attempts to retrieve a User from the store using the name
 func (a *BadgerAuthenticator) GetUser(name string) (*User, error) {
-	u := User{Name: name}
+	u := &User{Name: name}
 
-	if err := a.getAndDecode(u.Key(), &u); err != nil {
+	err := a.db.View(func(tx *badger.Txn) error {
+		return a.getAndDecode(tx, u.Key(), u)
+	})
+	if err != nil {
 		if err == badger.ErrKeyNotFound {
 			return nil, ErrUserDoesntExist
 		}
 		return nil, err
 	}
 
-	return &u, nil
+	return u, nil
 }
 
 func (a *BadgerAuthenticator) GetUsers() ([]*User, error) {
@@ -200,24 +212,11 @@ func (a *BadgerAuthenticator) GetUsers() ([]*User, error) {
 		defer it.Close()
 
 		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
-
-			return item.Value(func(val []byte) error {
-				dec := msgpack.GetDecoder()
-				defer msgpack.PutDecoder(dec)
-
-				dec.ResetBytes(val)
-
-				var u User
-
-				if err := dec.Decode(&u); err != nil {
-					return err
-				}
-
-				users = append(users, &u)
-
-				return nil
-			})
+			var u User
+			if err := a.decode(it.Item(), &u); err != nil {
+				return err
+			}
+			users = append(users, &u)
 		}
 		return nil
 	})
@@ -230,52 +229,66 @@ func (a *BadgerAuthenticator) GetUsers() ([]*User, error) {
 
 // GetGroup attempts to retrieve a Group from the store using the name
 func (a *BadgerAuthenticator) GetGroup(name string) (*Group, error) {
-	g := Group{Name: name}
+	g := &Group{Name: name}
 
-	if err := a.getAndDecode(g.Key(), &g); err != nil {
+	err := a.db.View(func(tx *badger.Txn) error {
+		return a.getAndDecode(tx, g.Key(), g)
+	})
+	if err != nil {
 		if err == badger.ErrKeyNotFound {
 			return nil, ErrGroupDoesntExist
 		}
 		return nil, err
 	}
 
-	return &g, nil
+	return g, nil
 }
 
-// SaveUser overwrites the User in the store
-func (a *BadgerAuthenticator) UpdateUser(name string, fn func(user *User) error) error {
+func (a *BadgerAuthenticator) GetGroups() ([]*Group, error) {
+	var groups []*Group
+
+	err := a.db.View(func(tx *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+
+		opts.PrefetchSize = 10
+		opts.Prefix = []byte("groups:")
+		it := tx.NewIterator(opts)
+		defer it.Close()
+
+		for it.Rewind(); it.Valid(); it.Next() {
+			var u Group
+			if err := a.decode(it.Item(), &u); err != nil {
+				return err
+			}
+			groups = append(groups, &u)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return groups, nil
+}
+
+func (a *BadgerAuthenticator) updateEntry(e Entry, fn func(Entry) error) error {
 	var count int
 
 	for {
 		err := a.db.Update(func(tx *badger.Txn) error {
-			u := User{Name: name}
 
-			if err := a.getAndDecode(u.Key(), &u); err != nil {
+			if err := a.getAndDecode(tx, e.Key(), e); err != nil {
 				if err == badger.ErrKeyNotFound {
 					return ErrUserDoesntExist
 				}
 				return err
 			}
 
-			if err := fn(&u); err != nil {
-				return err
-			}
-			u.UpdatedAt = time.Now()
-
-			enc := msgpack.GetEncoder()
-			defer msgpack.PutEncoder(enc)
-
-			b := a.bufferPool.Get().(*bytes.Buffer)
-			b.Reset()
-			defer a.bufferPool.Put(b)
-
-			enc.Reset(b)
-
-			if err := enc.Encode(u); err != nil {
+			if err := fn(e); err != nil {
 				return err
 			}
 
-			return tx.Set(u.Key(), b.Bytes())
+			return a.encodeAndUpdate(tx, e)
 		})
 
 		switch err {
@@ -297,61 +310,28 @@ func (a *BadgerAuthenticator) UpdateUser(name string, fn func(user *User) error)
 	return nil
 }
 
-func (a *BadgerAuthenticator) UpdateGroup(name string, fn func(user *Group) error) error {
-	var count int
-
-	for {
-		err := a.db.Update(func(tx *badger.Txn) error {
-			g := Group{Name: name}
-
-			if err := a.getAndDecode(g.Key(), &g); err != nil {
-				if err == badger.ErrKeyNotFound {
-					return ErrGroupDoesntExist
-				}
-				return err
-			}
-
-			if err := fn(&g); err != nil {
-				return err
-			}
-			g.UpdatedAt = time.Now()
-
-			enc := msgpack.GetEncoder()
-			defer msgpack.PutEncoder(enc)
-
-			b := a.bufferPool.Get().(*bytes.Buffer)
-			b.Reset()
-			defer a.bufferPool.Put(b)
-
-			enc.Reset(b)
-
-			if err := enc.Encode(g); err != nil {
-				return err
-			}
-
-			return tx.Set(g.Key(), b.Bytes())
-		})
-		switch err {
-		case nil:
-			return nil
-
-		case badger.ErrConflict:
-			if count > 10 {
-				return err
-			}
-			count++
-
-		default:
-			return err
+// UpdateUser overwrites the User in the store
+func (a *BadgerAuthenticator) UpdateUser(name string, fn func(*User) error) error {
+	u := User{Name: name}
+	return a.updateEntry(&u, func(e Entry) error {
+		user, ok := e.(*User)
+		if !ok {
+			return errors.New("expected User")
 		}
-	}
-
-	return nil
+		return fn(user)
+	})
 }
 
-// SaveGroup overwrites the Group in the store
-func (a *BadgerAuthenticator) SaveGroup(user *Group) error {
-	return errors.New("stub")
+// UpdateGroup overwrites the Group in the store
+func (a *BadgerAuthenticator) UpdateGroup(name string, fn func(*Group) error) error {
+	g := Group{Name: name}
+	return a.updateEntry(&g, func(e Entry) error {
+		group, ok := e.(*Group)
+		if !ok {
+			return errors.New("expected Group")
+		}
+		return fn(group)
+	})
 }
 
 // DeleteUser removes the User from the store.
@@ -364,7 +344,39 @@ func (a *BadgerAuthenticator) DeleteUser(name string) error {
 // any Users.
 // TODO: how to handle shadow fs
 func (a *BadgerAuthenticator) DeleteGroup(name string) error {
-	return errors.New("stub")
+
+	// get users
+	users, err := a.GetUsers()
+	if err != nil {
+		return err
+	}
+
+	var changed []*User
+
+	for _, u := range users {
+		if _, ok := u.Groups[name]; ok {
+			delete(u.Groups, name)
+			changed = append(changed, u)
+		}
+		if u.PrimaryGroup == name {
+			u.PrimaryGroup = ""
+		}
+	}
+
+	err = a.db.Update(func(tx *badger.Txn) error {
+		for _, u := range changed {
+			if err := a.encodeAndUpdate(tx, u); err != nil {
+				return err
+			}
+		}
+
+		return tx.Delete([]byte("groups:" + name))
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // CheckPassword checks to see if the password is the correct one for

@@ -110,6 +110,8 @@ func (u User) Key() []byte {
 	))
 }
 
+func (u *User) SetUpdatedAt() { u.UpdatedAt = time.Now() }
+
 type Group struct {
 	Name        string
 	Description string
@@ -124,6 +126,8 @@ func (g Group) Key() []byte {
 		strings.ToLower(g.Name),
 	))
 }
+
+func (g *Group) SetUpdatedAt() { g.UpdatedAt = time.Now() }
 
 type GroupSettings struct {
 	IsAdmin bool
