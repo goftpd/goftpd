@@ -44,7 +44,7 @@ local err = session:Auth():UpdateUser(target.Name, function(u)
 	return nil
 end)
 
-if err ~= nil then
+if err then
 	session:Reply(500, "Error: " .. err:Error())
 	return false
 end

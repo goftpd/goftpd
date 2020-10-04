@@ -27,6 +27,7 @@ type User struct {
 
 	// meta
 	CreatedAt   time.Time
+	UpdatedAt   time.Time
 	LastLoginAt time.Time
 	DeletedAt   time.Time
 
@@ -110,9 +111,11 @@ func (u User) Key() []byte {
 }
 
 type Group struct {
-	Name string
+	Name        string
+	Description string
 
-	AddedAt time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func (g Group) Key() []byte {

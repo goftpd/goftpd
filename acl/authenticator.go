@@ -42,7 +42,7 @@ type Authenticator interface {
 	// save
 	// SaveUser(*User) error
 	UpdateUser(string, func(*User) error) error
-	SaveGroup(*Group) error
+	UpdateGroup(string, func(*Group) error) error
 
 	// delete
 	DeleteUser(user string) error
@@ -165,6 +165,7 @@ func (a *BadgerAuthenticator) AddGroup(name string) (*Group, error) {
 	g = &Group{}
 
 	g.Name = name
+	g.CreatedAt = time.Now()
 
 	if err := a.encodeAndUpdate(g); err != nil {
 		return nil, err
@@ -229,7 +230,16 @@ func (a *BadgerAuthenticator) GetUsers() ([]*User, error) {
 
 // GetGroup attempts to retrieve a Group from the store using the name
 func (a *BadgerAuthenticator) GetGroup(name string) (*Group, error) {
-	return nil, errors.New("stub")
+	g := Group{Name: name}
+
+	if err := a.getAndDecode(g.Key(), &g); err != nil {
+		if err == badger.ErrKeyNotFound {
+			return nil, ErrGroupDoesntExist
+		}
+		return nil, err
+	}
+
+	return &g, nil
 }
 
 // SaveUser overwrites the User in the store
@@ -250,6 +260,7 @@ func (a *BadgerAuthenticator) UpdateUser(name string, fn func(user *User) error)
 			if err := fn(&u); err != nil {
 				return err
 			}
+			u.UpdatedAt = time.Now()
 
 			enc := msgpack.GetEncoder()
 			defer msgpack.PutEncoder(enc)
@@ -266,15 +277,72 @@ func (a *BadgerAuthenticator) UpdateUser(name string, fn func(user *User) error)
 
 			return tx.Set(u.Key(), b.Bytes())
 		})
-		if err == nil {
-			return nil
-		}
 
-		if err == badger.ErrConflict {
+		switch err {
+		case nil:
+			return nil
+
+		case badger.ErrConflict:
 			if count > 10 {
 				return err
 			}
 			count++
+
+		default:
+			return err
+		}
+
+	}
+
+	return nil
+}
+
+func (a *BadgerAuthenticator) UpdateGroup(name string, fn func(user *Group) error) error {
+	var count int
+
+	for {
+		err := a.db.Update(func(tx *badger.Txn) error {
+			g := Group{Name: name}
+
+			if err := a.getAndDecode(g.Key(), &g); err != nil {
+				if err == badger.ErrKeyNotFound {
+					return ErrGroupDoesntExist
+				}
+				return err
+			}
+
+			if err := fn(&g); err != nil {
+				return err
+			}
+			g.UpdatedAt = time.Now()
+
+			enc := msgpack.GetEncoder()
+			defer msgpack.PutEncoder(enc)
+
+			b := a.bufferPool.Get().(*bytes.Buffer)
+			b.Reset()
+			defer a.bufferPool.Put(b)
+
+			enc.Reset(b)
+
+			if err := enc.Encode(g); err != nil {
+				return err
+			}
+
+			return tx.Set(g.Key(), b.Bytes())
+		})
+		switch err {
+		case nil:
+			return nil
+
+		case badger.ErrConflict:
+			if count > 10 {
+				return err
+			}
+			count++
+
+		default:
+			return err
 		}
 	}
 
