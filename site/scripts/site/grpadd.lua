@@ -1,9 +1,3 @@
--- check we have params
-if not params then
-	session:Reply(501, "Syntax: site grpadd <group> [description]")
-	return false
-end
-
 -- site addip <user> <mask> <...mask>
 if #params < 1 then
 	session:Reply(501, "Syntax: site grpass <group> [description]")
