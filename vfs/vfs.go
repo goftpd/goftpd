@@ -151,6 +151,9 @@ func (fs *Filesystem) DownloadFile(path string, user *acl.User) (ReadSeekCloser,
 // permissions from high level to low level). Returns an io.Writer if allowed. Does not
 // truncate a file
 func (fs *Filesystem) UploadFile(path string, user *acl.User) (io.WriteCloser, error) {
+	// TODO
+	// need to check if we are currently uploading
+
 	if !fs.permissions.Match(acl.PermissionScopeUpload, path, user) {
 		return nil, acl.ErrPermissionDenied
 	}
@@ -160,7 +163,26 @@ func (fs *Filesystem) UploadFile(path string, user *acl.User) (io.WriteCloser, e
 		return nil, acl.ErrPermissionDenied
 	}
 
-	f, err := fs.chroot.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, defaultPerms)
+	// check if we would be able to delete it
+	if !fs.permissions.Match(acl.PermissionScopeDelete, path, user) {
+
+		// not allowed to globally delete, check if this is ours and we can delete our own
+		if !fs.permissions.Match(acl.PermissionScopeDeleteOwn, path, user) {
+			return nil, acl.ErrPermissionDenied
+		}
+
+		owner, err := fs.checkOwnership(path, user)
+		if err != nil {
+			return nil, err
+		}
+
+		if !owner {
+			return nil, acl.ErrPermissionDenied
+		}
+	}
+
+	f, err := fs.chroot.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, defaultPerms)
+
 	if err != nil {
 		return nil, err
 	}
