@@ -18,6 +18,12 @@ import (
 	luar "layeh.com/gopher-luar"
 )
 
+type ScriptError struct {
+	Message string
+}
+
+func (e ScriptError) Error() string { return e.Message }
+
 type LUAEngine struct {
 	// compiled lua byte code is stored here
 	byteCode map[string]*lua.FunctionProto
@@ -191,6 +197,7 @@ func (le *LUAEngine) Do(pctx context.Context, fields []string, hook ScriptHook, 
 				L.Push(L.NewFunctionFromProto(proto))
 
 				L.SetGlobal("ftpCommand", luar.New(L, ftpCommand))
+				L.SetGlobal("Error", luar.NewType(L, ScriptError{}))
 				L.SetGlobal("params", luar.New(L, fields))
 				L.SetGlobal("session", luar.New(L, session))
 				L.SetGlobal("acl", luar.New(L, c.ACL))
