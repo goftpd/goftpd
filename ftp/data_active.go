@@ -6,11 +6,14 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 type activeDataConn struct {
 	ctx context.Context
+
+	tlsConfig *tls.Config
 
 	conn net.Conn
 
@@ -19,6 +22,8 @@ type activeDataConn struct {
 
 	written int
 	read    int
+
+	sync.Mutex
 }
 
 func (s *Server) newActiveDataConn(ctx context.Context, param string, dataProtected bool) (*activeDataConn, error) {
@@ -43,43 +48,73 @@ func (s *Server) newActiveDataConn(ctx context.Context, param string, dataProtec
 		port: port,
 	}
 
-	addr := net.JoinHostPort(host, strconv.Itoa(int(port)))
+	if dataProtected {
+		d.tlsConfig = s.TLSConfig()
+	}
+
+	return &d, nil
+}
+
+// Connect attempts to connect to the underlying connection
+func (d *activeDataConn) connect() error {
+	d.Lock()
+	defer d.Unlock()
+	if d.conn != nil {
+		return nil
+	}
+
+	addr := net.JoinHostPort(d.host, strconv.Itoa(int(d.port)))
 
 	dialer := net.Dialer{
 		Timeout: time.Second * 60,
 		// TODO: LocalAddr we probably want to be able to configure this
 	}
 
-	d.conn, err = dialer.DialContext(ctx, "tcp", addr)
+	var err error
+
+	d.conn, err = dialer.DialContext(d.ctx, "tcp", addr)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	if dataProtected {
+	if d.tlsConfig != nil {
 		/*
 			That is to say, it does not matter which side initiates the
 			connection with a connect() call or which side reacts to the
 			connection via the accept() call; the FTP client, as defined in
 			[RFC-959], is always the TLS client, as defined in [RFC-2246].
 		*/
-		d.conn = tls.Server(d.conn, s.TLSConfig())
+		d.conn = tls.Server(d.conn, d.tlsConfig)
 	}
 
-	return &d, nil
+	return nil
 }
 
 // Close implements the io.Closer
 func (d *activeDataConn) Close() error {
+	d.Lock()
+	defer d.Unlock()
+
+	if d.conn == nil {
+		return nil
+	}
 	return d.conn.Close()
 }
 
 // Read implements the io.Reader interface and makes it context ware
 func (d *activeDataConn) Read(p []byte) (int, error) {
+
 	if err := d.ctx.Err(); err != nil {
 		return 0, err
 	}
+
+	if err := d.connect(); err != nil {
+		return 0, err
+	}
+
 	n, err := d.conn.Read(p)
 	d.read += n
+
 	return n, err
 }
 
@@ -88,8 +123,14 @@ func (d *activeDataConn) Write(p []byte) (int, error) {
 	if err := d.ctx.Err(); err != nil {
 		return 0, err
 	}
+
+	if err := d.connect(); err != nil {
+		return 0, err
+	}
+
 	n, err := d.conn.Write(p)
 	d.written += n
+
 	return n, err
 }
 

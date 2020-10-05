@@ -47,8 +47,14 @@ func (c commandRETR) Execute(ctx context.Context, s Session, params []string) er
 
 	if s.DataProtected() {
 		s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for download using TLS/SSL.")
+		if err := s.Flush(); err != nil {
+			return err
+		}
 	} else {
 		s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for download.")
+		if err := s.Flush(); err != nil {
+			return err
+		}
 	}
 	defer s.Data().Close()
 	defer s.ClearData()
@@ -72,7 +78,7 @@ func (c commandRETR) Execute(ctx context.Context, s Session, params []string) er
 
 	s.Data().Close()
 
-	s.ReplyWithMessage(StatusDataClosedOK, fmt.Sprintf("OK, received %d bytes.", n))
+	s.ReplyWithMessage(StatusDataClosedOK, fmt.Sprintf("OK, sent %d bytes.", n))
 	return nil
 }
 

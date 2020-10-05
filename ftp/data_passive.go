@@ -66,7 +66,7 @@ func (s *Server) newPassiveDataConn(ctx context.Context, dataProtected bool) (*p
 		// if we want to support none tls, do it here
 		var ln net.Listener
 
-		addr := net.JoinHostPort(s.PublicIP, strconv.Itoa(int(port)))
+		addr := net.JoinHostPort(s.BindIP, strconv.Itoa(int(port)))
 
 		if dataProtected {
 			ln, err = tls.Listen("tcp", addr, s.tlsConfig)

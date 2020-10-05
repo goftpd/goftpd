@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	"github.com/goftpd/goftpd/acl"
 )
 
 /*
@@ -49,19 +51,38 @@ func (c commandSTOR) Execute(ctx context.Context, s Session, params []string) er
 
 	if s.DataProtected() {
 		s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for upload using TLS/SSL.")
+		if err := s.Flush(); err != nil {
+			return err
+		}
 	} else {
 		s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for upload.")
+		if err := s.Flush(); err != nil {
+			return err
+		}
 	}
 	defer s.Data().Close()
 	defer s.ClearData()
 
 	n, err := io.Copy(writer, s.Data())
 	if err != nil {
+		// delete the file
+		if err := s.FS().DeleteFile(path, acl.SuperUser); err != nil {
+			return err
+		}
+
 		s.ReplyError(StatusActionNotOK, err)
 		return nil
 	}
 
 	s.Data().Close()
+
+	if n == 0 {
+		if err := s.FS().DeleteFile(path, acl.SuperUser); err != nil {
+			return err
+		}
+		s.ReplyWithMessage(StatusActionNotOK, "0 bytes sent.")
+		return nil
+	}
 
 	s.ReplyWithMessage(StatusDataClosedOK, fmt.Sprintf("OK, received %d bytes.", n))
 	return nil

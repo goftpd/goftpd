@@ -212,6 +212,11 @@ func (s *Session) reply(code int, message string) {
 }
 
 func (s *Session) Flush() error {
+	defer func() {
+		s.code = 0
+		s.buffer = []string{}
+	}()
+
 	if len(s.buffer) == 0 {
 		return nil
 	}
@@ -222,11 +227,6 @@ func (s *Session) Flush() error {
 		return nil
 	}
 	s.activeMtx.Unlock()
-
-	defer func() {
-		s.code = 0
-		s.buffer = nil
-	}()
 
 	b := strings.Builder{}
 
@@ -245,6 +245,9 @@ func (s *Session) Flush() error {
 	}
 
 	for _, p := range s.buffer {
+		if len(p) == 0 {
+			continue
+		}
 		if _, err := b.WriteString(p + "\r\n"); err != nil {
 			return cmd.NewFatalError(err)
 		}
@@ -267,6 +270,10 @@ func (s *Session) Flush() error {
 
 	if err := s.control.writer.Flush(); err != nil {
 		return cmd.NewFatalError(err)
+	}
+
+	if len(os.Getenv("DEBUG")) > 0 {
+		fmt.Fprintf(os.Stderr, ">>> %s", b.String())
 	}
 
 	return nil
@@ -325,6 +332,10 @@ func (s *Session) serve(ctx context.Context, server *Server, conn net.Conn) {
 			break
 		}
 
+		if len(os.Getenv("DEBUG")) > 0 {
+			fmt.Fprintf(os.Stderr, "<<< %s", line)
+		}
+
 		// check for cancellation
 		select {
 		case <-ctx.Done():
@@ -363,16 +374,27 @@ func (session *Session) handleCommand(ctx context.Context, fields []string) erro
 		if session.State() == cmd.SessionStateLoggedIn {
 			err := session.server.se.Do(ctx, fields, script.ScriptHookCommand, session)
 
-			if err == script.ErrNotExist {
-				session.ReplyStatus(cmd.StatusNotImplemented)
-			} else if err == script.ErrStop {
-				return nil
+			switch err {
 
-			} else if err != nil {
+			case script.ErrNotExist:
+				session.ReplyStatus(cmd.StatusNotImplemented)
+				break
+
+			case script.ErrStop:
+				break
+
+			case nil:
+				break
+
+			default:
 				session.Reply(500, "Error in script.")
 				return err
 			}
+
+			return nil
 		}
+
+		session.ReplyStatus(cmd.StatusNotImplemented)
 
 		return nil
 	}

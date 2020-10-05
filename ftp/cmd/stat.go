@@ -74,10 +74,14 @@ func (c commandSTAT) Execute(ctx context.Context, s Session, params []string) er
 	}
 
 	s.ReplyWithMessage(
-		StatusSystemStatus,
+		StatusFileStatus,
+
+		// TODO
+		// there is a bug with cbftp where it matches lines if they are over a certain
+		// length, this should be temporary, for now mimic glftpd
 		fmt.Sprintf(
-			"Status of \"%s\":\n%s",
-			path,
+			"Status of \"-l\":\n%s",
+			// path,
 			finfo.Detailed(),
 		),
 	)
