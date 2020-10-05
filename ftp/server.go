@@ -24,6 +24,7 @@ type ServerOpts struct {
 	PassivePorts []int  `goftpd:"passive_ports"`
 
 	PublicIP string `goftpd:"public_ip"`
+	BindIP   string `goftpd:"bind_ip"`
 
 	TLSCertFile string `goftpd:"tls_cert_file"`
 	TLSKeyFile  string `goftpd:"tls_key_file"`

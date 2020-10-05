@@ -24,6 +24,10 @@ func (c *Config) ParseServerOpts() (*ftp.ServerOpts, error) {
 		return nil, errors.New("public_ip required")
 	}
 
+	if len(opts.BindIP) == 0 {
+		opts.BindIP = opts.PublicIP
+	}
+
 	// set defaults
 	if len(opts.Name) == 0 {
 		opts.Name = "go"
