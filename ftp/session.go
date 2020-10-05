@@ -10,6 +10,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/goftpd/goftpd/acl"
 	"github.com/goftpd/goftpd/ftp/cmd"
@@ -21,6 +22,9 @@ import (
 // channel
 type Session struct {
 	server *Server
+
+	active    bool
+	activeMtx sync.Mutex
 
 	control *Control
 	data    cmd.DataConn
@@ -130,6 +134,10 @@ func (s *Session) User() *acl.User {
 func (s *Session) Reset() {
 	s.server = nil
 
+	s.activeMtx.Lock()
+	s.active = false
+	s.activeMtx.Unlock()
+
 	s.control = nil
 	s.data = nil
 
@@ -151,6 +159,10 @@ func (s *Session) Reset() {
 // Close attempts to gracefully close the control and any running
 // data connections
 func (s *Session) Close() error {
+	s.activeMtx.Lock()
+	s.active = false
+	s.activeMtx.Unlock()
+
 	if err := s.control.Close(); err != nil {
 		return err
 	}
@@ -203,6 +215,13 @@ func (s *Session) Flush() error {
 	if len(s.buffer) == 0 {
 		return nil
 	}
+
+	s.activeMtx.Lock()
+	if !s.active {
+		s.activeMtx.Unlock()
+		return nil
+	}
+	s.activeMtx.Unlock()
 
 	defer func() {
 		s.code = 0
@@ -290,6 +309,7 @@ func (s *Session) serve(ctx context.Context, server *Server, conn net.Conn) {
 
 	s.control = newControl(conn)
 	s.server = server
+	s.active = true
 
 	s.ReplyWithMessage(cmd.StatusServiceReady, "Welcome!")
 	if err := s.Flush(); err != nil {
@@ -349,6 +369,7 @@ func (session *Session) handleCommand(ctx context.Context, fields []string) erro
 				return nil
 
 			} else if err != nil {
+				session.Reply(500, "Error in script.")
 				return err
 			}
 		}
@@ -381,6 +402,7 @@ func (session *Session) handleCommand(ctx context.Context, fields []string) erro
 			if err == script.ErrStop {
 				return nil
 			}
+			session.Reply(500, "Error in script.")
 			return err
 		}
 	}
@@ -403,6 +425,7 @@ func (session *Session) handleCommand(ctx context.Context, fields []string) erro
 			if err == script.ErrStop {
 				return nil
 			}
+			session.Reply(500, "Error in script.")
 			return err
 		}
 	}
