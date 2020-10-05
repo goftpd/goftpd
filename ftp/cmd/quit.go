@@ -43,6 +43,10 @@ func (c commandQUIT) Execute(ctx context.Context, s Session, params []string) er
 	defer s.Close()
 
 	s.ReplyStatus(StatusClosingControl)
+	if err := s.Flush(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
