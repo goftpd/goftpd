@@ -63,7 +63,10 @@ func (c commandSTOR) Execute(ctx context.Context, s Session, params []string) er
 	defer s.Data().Close()
 	defer s.ClearData()
 
-	n, err := io.Copy(writer, s.Data())
+	buf := s.FS().GetBuffer()
+	defer s.FS().PutBuffer(buf)
+
+	n, err := io.CopyBuffer(writer, s.Data(), *buf)
 	if err != nil {
 		// delete the file
 		if err := s.FS().DeleteFile(path, acl.SuperUser); err != nil {

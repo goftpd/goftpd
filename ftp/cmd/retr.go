@@ -70,7 +70,10 @@ func (c commandRETR) Execute(ctx context.Context, s Session, params []string) er
 		}
 	}
 
-	n, err := io.Copy(s.Data(), reader)
+	buf := s.FS().GetBuffer()
+	defer s.FS().PutBuffer(buf)
+
+	n, err := io.CopyBuffer(s.Data(), reader, *buf)
 	if err != nil {
 		s.ReplyError(StatusActionNotOK, err)
 		return nil

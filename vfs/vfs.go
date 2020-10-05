@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/goftpd/goftpd/acl"
@@ -20,6 +21,12 @@ type ReadSeekCloser interface {
 	io.Closer
 }
 
+func newBufferPoolWithSize(size int) sync.Pool {
+	return sync.Pool{
+		New: func() interface{} { s := make([]byte, size); return &s },
+	}
+}
+
 type VFS interface {
 	Join(string, []string) string
 	Stop() error
@@ -31,6 +38,9 @@ type VFS interface {
 	DeleteFile(string, *acl.User) error
 	DeleteDir(string, *acl.User) error
 	ListDir(string, *acl.User) (FileList, error)
+
+	GetBuffer() *[]byte
+	PutBuffer(*[]byte)
 }
 
 type FilesystemOpts struct {
@@ -49,6 +59,7 @@ type Filesystem struct {
 	chroot      billy.Filesystem
 	shadow      Shadow
 	permissions *acl.Permissions
+	buffPool    sync.Pool
 }
 
 // NewFilesystem creates a new Filesystem with the given chroot (underlying fs) shadow (stores user/group meta data
@@ -59,9 +70,18 @@ func NewFilesystem(opts *FilesystemOpts, chroot billy.Filesystem, shadow Shadow,
 		chroot:         chroot,
 		shadow:         shadow,
 		permissions:    permissions,
+		buffPool:       newBufferPoolWithSize(256 * 1024),
 	}
 
 	return &fs, nil
+}
+
+func (fs *Filesystem) GetBuffer() *[]byte {
+	return fs.buffPool.Get().(*[]byte)
+}
+
+func (fs *Filesystem) PutBuffer(b *[]byte) {
+	fs.buffPool.Put(b)
 }
 
 // Join tries to give back a safe path
