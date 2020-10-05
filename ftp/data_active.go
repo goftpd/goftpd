@@ -57,6 +57,7 @@ func (s *Server) newActiveDataConn(ctx context.Context, param string, dataProtec
 
 // Connect attempts to connect to the underlying connection
 func (d *activeDataConn) connect() error {
+
 	d.Lock()
 	defer d.Unlock()
 	if d.conn != nil {
@@ -78,6 +79,7 @@ func (d *activeDataConn) connect() error {
 	}
 
 	if d.tlsConfig != nil {
+
 		/*
 			That is to say, it does not matter which side initiates the
 			connection with a connect() call or which side reacts to the

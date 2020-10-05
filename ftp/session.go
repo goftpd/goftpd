@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"runtime"
@@ -208,7 +209,11 @@ func (s *Session) reply(code int, message string) {
 	parts := strings.Split(message, "\n")
 
 	s.code = code
-	s.buffer = append(s.buffer, parts...)
+	for idx := range parts {
+		if len(parts[idx]) > 0 {
+			s.buffer = append(s.buffer, parts[idx])
+		}
+	}
 }
 
 func (s *Session) Flush() error {
@@ -224,6 +229,7 @@ func (s *Session) Flush() error {
 	s.activeMtx.Lock()
 	if !s.active {
 		s.activeMtx.Unlock()
+		log.Println("quit")
 		return nil
 	}
 	s.activeMtx.Unlock()
@@ -254,13 +260,9 @@ func (s *Session) Flush() error {
 	}
 
 	if len(s.buffer) > 1 {
-		if _, err := b.WriteString(fmt.Sprintf("%d End.", s.code)); err != nil {
+		if _, err := b.WriteString(fmt.Sprintf("%d End.\r\n", s.code)); err != nil {
 			return cmd.NewFatalError(err)
 		}
-	}
-
-	if _, err := b.WriteString("\r\n"); err != nil {
-		return cmd.NewFatalError(err)
 	}
 
 	_, err := s.control.writer.WriteString(b.String())

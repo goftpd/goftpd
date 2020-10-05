@@ -68,7 +68,7 @@ func (c commandAUTH) Execute(ctx context.Context, s Session, params []string) er
 		return nil
 	}
 
-	s.ReplyStatus(StatusSecurityExchangeOK)
+	s.ReplyWithMessage(StatusSecurityExchangeOK, "AUTH TLS successful")
 	if err := s.Flush(); err != nil {
 		return CommandFatalError{err}
 	}

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"runtime"
@@ -18,6 +19,8 @@ type passiveDataConn struct {
 	ctx context.Context
 
 	conn net.Conn
+
+	dataProtected bool
 
 	host string
 	port int64
@@ -83,9 +86,10 @@ func (s *Server) newPassiveDataConn(ctx context.Context, dataProtected bool) (*p
 		}
 
 		dc := passiveDataConn{
-			ctx:  ctx,
-			host: s.PublicIP,
-			port: port,
+			ctx:           ctx,
+			host:          s.PublicIP,
+			port:          port,
+			dataProtected: dataProtected,
 			onClose: func() {
 				s.passivePortsMtx.Lock()
 				delete(s.passivePorts, port)
@@ -140,6 +144,13 @@ func (d *passiveDataConn) Accept(ctx context.Context, ln net.Listener) {
 	}()
 
 	d.conn, d.err = ln.Accept()
+
+	if d.dataProtected {
+		// handshake
+		if err := d.conn.(*tls.Conn).Handshake(); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR HANDSHAKE PASV: %s", err)
+		}
+	}
 }
 
 // Read implements the io.Reader interface as well as providing us
