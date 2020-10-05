@@ -71,8 +71,14 @@ func (c commandLIST) Execute(ctx context.Context, s Session, params []string) er
 
 	if s.DataProtected() {
 		s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for directory listing using TLS/SSL.")
+		if err := s.Flush(); err != nil {
+			return err
+		}
 	} else {
 		s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for directory listing.")
+		if err := s.Flush(); err != nil {
+			return err
+		}
 	}
 	defer s.Data().Close()
 	defer s.ClearData()
