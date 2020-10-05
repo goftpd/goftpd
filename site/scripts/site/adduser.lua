@@ -1,9 +1,3 @@
--- check we have params
-if not params then
-	session:Reply(501, "Syntax: site adduser <user> <password> <mask> <...mask>")
-	return false
-end
-
 -- site addip <user> <mask> <...mask>
 if #params < 3 then
 	session:Reply(501, "Syntax: site adduser <user> <password> <mask> <...mask>")
@@ -28,10 +22,11 @@ end
 
 session:Reply(226, "Created user '" .. params[1] .. "'")
 
--- update the user adding each mask
 local err = session:Auth():UpdateUser(target.Name, function(u)
+	u.AddedBy = user.Name
+
 	for i, mask in params() do
-		if i > 1 then
+		if i > 2 then
 			local err = u:AddIP(mask)
 			if err == nil then
 				session:Reply(226, "Added Mask: " .. mask)

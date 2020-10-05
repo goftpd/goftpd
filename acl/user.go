@@ -15,9 +15,10 @@ type User struct {
 
 	// group related attributes
 	PrimaryGroup string
-	Groups       map[string]GroupSettings
+	Groups       map[string]*GroupSettings
 
 	// bytes available for download
+	Ratio   int
 	Credits int
 
 	// login based attributes
@@ -26,12 +27,45 @@ type User struct {
 	Downloads int
 
 	// meta
+	AddedBy     string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	LastLoginAt time.Time
 	DeletedAt   time.Time
 
 	IPMasks []string
+}
+
+func (u *User) HasGroup(name string) bool {
+	name = strings.ToLower(name)
+
+	_, ok := u.Groups[name]
+
+	return ok
+}
+
+// AddGroup creates a new GroupSettings (rather than importing for every lua script)
+func (u *User) AddGroup(name string) {
+	name = strings.ToLower(name)
+
+	if _, ok := u.Groups[name]; ok {
+		return
+	}
+
+	u.Groups[name] = &GroupSettings{
+		AddedAt: time.Now(),
+	}
+}
+
+// AddGroup creates a new GroupSettings (rather than importing for every lua script)
+func (u *User) RemoveGroup(name string) {
+	name = strings.ToLower(name)
+
+	if _, ok := u.Groups[name]; !ok {
+		return
+	}
+
+	delete(u.Groups, name)
 }
 
 // Delete sets DeletedAt (convenience for scripts)
@@ -111,23 +145,6 @@ func (u User) Key() []byte {
 }
 
 func (u *User) SetUpdatedAt() { u.UpdatedAt = time.Now() }
-
-type Group struct {
-	Name        string
-	Description string
-
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
-func (g Group) Key() []byte {
-	return []byte(fmt.Sprintf(
-		"groups:%s",
-		strings.ToLower(g.Name),
-	))
-}
-
-func (g *Group) SetUpdatedAt() { g.UpdatedAt = time.Now() }
 
 type GroupSettings struct {
 	IsAdmin bool

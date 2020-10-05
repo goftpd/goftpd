@@ -15,10 +15,29 @@ if not acl:MatchTarget(caller, target) then
 end
 
 session:Reply(226, "User: " .. target.Name)
+session:Reply(226, "Added By: " .. target.AddedBy)
+session:Reply(226, "Created: " .. target.CreatedAt:Format("15:04 02/01/2006"))
+session:Reply(226, "Last Login: " .. target.LastLoginAt:Format("15:04 02/01/2006"))
+-- pretty redundant as last login at sets this also
+-- session:Reply(226, "Last Updated: " .. target.UpdatedAt:Format("15:04 02/01/2006"))
 
-if target.IPMasks ~= nil then
-	for i, v in target.IPMasks() do
-		session:Reply(226, "Mask [" .. i .. "]: " .. v)
+if target.IPMasks then
+	for i, mask in target.IPMasks() do
+		session:Reply(226, "Mask [" .. i .. "]: " .. mask)
+	end
+end
+
+if target.PrimaryGroup ~= "" then
+	session:Reply(226, "Primary Group: " .. target.PrimaryGroup)
+end
+
+if target.Groups then
+	for group, settings in target.Groups() do
+		if settings.IsAdmin then
+			session:Reply(226, "Group *" .. group)
+		else
+			session:Reply(226, "Group " .. group)
+		end
 	end
 end
 

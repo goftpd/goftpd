@@ -145,6 +145,8 @@ func (a *BadgerAuthenticator) AddUser(name, pass string) (*User, error) {
 	u.Name = name
 	u.Password = hashed
 	u.CreatedAt = time.Now()
+	u.Groups = make(map[string]*GroupSettings, 0)
+	u.IPMasks = make([]string, 0)
 
 	err = a.db.Update(func(tx *badger.Txn) error {
 		return a.encodeAndUpdate(tx, u)
@@ -172,6 +174,7 @@ func (a *BadgerAuthenticator) AddGroup(name string) (*Group, error) {
 
 	g.Name = name
 	g.CreatedAt = time.Now()
+	g.Users = make(map[string]*UserGroupMeta, 0)
 
 	err = a.db.Update(func(tx *badger.Txn) error {
 		return a.encodeAndUpdate(tx, g)

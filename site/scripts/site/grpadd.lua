@@ -1,4 +1,3 @@
--- site addip <user> <mask> <...mask>
 if #params < 1 then
 	session:Reply(501, "Syntax: site grpass <group> [description]")
 	return false
@@ -10,7 +9,6 @@ if not err then
 	session:Reply(500, "Group '" .. params[1] .. "' already exists")
 	return false
 end
-
 
 -- attempt to add the group
 target, err = session:Auth():AddGroup(params[1])

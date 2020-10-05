@@ -192,6 +192,28 @@ func (a *ACL) MatchTarget(caller, target *User) bool {
 	return a.Match(caller)
 }
 
+func (a *ACL) MatchTargetGroup(caller *User, target *Group) bool {
+	if caller == nil || target == nil {
+		return false
+	}
+
+	// check group settings
+	if a.allowed.gadmin || a.blocked.gadmin {
+		if settings, ok := caller.Groups[target.Name]; ok {
+			if settings.IsAdmin {
+				if a.allowed.gadmin {
+					return true
+				} else if a.blocked.gadmin {
+					return false
+				}
+			}
+		}
+	}
+
+	// fall back to match
+	return a.Match(caller)
+}
+
 // ExplicitMatch same as Match but must explicitly match
 func (a *ACL) ExplicitMatch(u *User) (bool, bool) {
 	// check blocked lists
