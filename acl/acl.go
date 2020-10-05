@@ -216,6 +216,11 @@ func (a *ACL) MatchTargetGroup(caller *User, target *Group) bool {
 
 // ExplicitMatch same as Match but must explicitly match
 func (a *ACL) ExplicitMatch(u *User) (bool, bool) {
+	// if this is the super user return a match
+	if u == SuperUser {
+		return true, true
+	}
+
 	// check blocked lists
 	if a.blocked.hasUser(u.Name) {
 		return false, true

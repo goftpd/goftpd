@@ -36,6 +36,9 @@ type User struct {
 	IPMasks []string
 }
 
+// this is used for us to try and bypass vfs matching
+var SuperUser = &User{}
+
 func (u *User) HasGroup(name string) bool {
 	name = strings.ToLower(name)
 
