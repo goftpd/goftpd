@@ -24,7 +24,7 @@ type FileList []FileInfo
 func (flist FileList) Short() []byte {
 	var buf bytes.Buffer
 	for _, file := range flist {
-		fmt.Fprintf(&buf, "%s\r\n", file.Name())
+		fmt.Fprintf(&buf, "%s\n", file.Name())
 	}
 	return buf.Bytes()
 }
@@ -33,12 +33,13 @@ func (flist FileList) Short() []byte {
 // detail, one per line
 func (flist FileList) Detailed() []byte {
 	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "total %d\n", len(flist))
 	for _, file := range flist {
 		fmt.Fprint(&buf, file.Mode().String())
 		fmt.Fprintf(&buf, " 1 %s %s ", file.Owner, file.Group)
 		fmt.Fprint(&buf, lpad(strconv.FormatInt(file.Size(), 10), 12))
 		fmt.Fprint(&buf, file.ModTime().Format(" Jan _2 15:04 "))
-		fmt.Fprintf(&buf, "%s\r\n", file.Name())
+		fmt.Fprintf(&buf, "%s\n", file.Name())
 	}
 	return buf.Bytes()
 }
