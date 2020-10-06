@@ -166,6 +166,7 @@ func (a *BadgerAuthenticator) AddUser(name, pass string) (*User, error) {
 	u.CreatedAt = time.Now()
 	u.Groups = make(map[string]*GroupSettings, 0)
 	u.IPMasks = make([]string, 0)
+	u.Ratio = 3
 
 	err = a.db.Update(func(tx *badger.Txn) error {
 		return a.encodeAndUpdate(tx, u)

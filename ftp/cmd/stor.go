@@ -87,6 +87,18 @@ func (c commandSTOR) Execute(ctx context.Context, s Session, params []string) er
 		return nil
 	}
 
+	// TODO
+	// do we want to store for ratio 0?
+	if n > 1024 {
+		n = n / 1024
+		go func() {
+			s.Auth().UpdateUser(user.Name, func(u *acl.User) error {
+				u.Credits += n * int64(u.Ratio)
+				return nil
+			})
+		}()
+	}
+
 	s.ReplyWithMessage(StatusDataClosedOK, fmt.Sprintf("OK, received %d bytes.", n))
 	return nil
 }

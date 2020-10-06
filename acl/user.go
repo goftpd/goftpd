@@ -17,9 +17,9 @@ type User struct {
 	PrimaryGroup string
 	Groups       map[string]*GroupSettings
 
-	// bytes available for download
+	// credits is kb
 	Ratio   int
-	Credits int
+	Credits int64
 
 	// login based attributes
 	Logins    int

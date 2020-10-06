@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/dgraph-io/ristretto"
 	"github.com/go-git/go-billy/v5"
 	"github.com/goftpd/goftpd/acl"
 	"github.com/pkg/errors"
@@ -32,7 +31,7 @@ type VFS interface {
 	Join(string, []string) string
 	Stop() error
 	MakeDir(string, *acl.User) error
-	DownloadFile(string, *acl.User) (ReadSeekCloser, error)
+	DownloadFile(string, *acl.User) (ReadSeekCloser, int64, error)
 	UploadFile(string, *acl.User) (io.WriteCloser, error)
 	ResumeUploadFile(string, *acl.User) (io.WriteCloser, error)
 	RenameFile(string, string, *acl.User) error
@@ -61,22 +60,11 @@ type Filesystem struct {
 	shadow      Shadow
 	permissions *acl.Permissions
 	buffPool    sync.Pool
-
-	cache *ristretto.Cache
 }
 
 // NewFilesystem creates a new Filesystem with the given chroot (underlying fs) shadow (stores user/group meta data
 // and permissions (check acl for paths, users and different scopes)
 func NewFilesystem(opts *FilesystemOpts, chroot billy.Filesystem, shadow Shadow, permissions *acl.Permissions) (*Filesystem, error) {
-
-	cache, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: 1e7,     // number of keys to track frequency of (10M).
-		MaxCost:     5 << 30, // maximum cost of cache (1GB).
-		BufferItems: 64,      // number of keys per Get buffer.
-	})
-	if err != nil {
-		return nil, err
-	}
 
 	fs := Filesystem{
 		FilesystemOpts: opts,
@@ -84,7 +72,6 @@ func NewFilesystem(opts *FilesystemOpts, chroot billy.Filesystem, shadow Shadow,
 		shadow:         shadow,
 		permissions:    permissions,
 		buffPool:       newBufferPoolWithSize(256 * 1024),
-		cache:          cache,
 	}
 
 	return &fs, nil
@@ -155,36 +142,35 @@ func (fs *Filesystem) MakeDir(path string, user *acl.User) error {
 
 // DownloadFile checks to see if the user has permission to read the file (checking download
 // permissions from high level to low level). Returns an io.ReadCloser if allowed
-func (fs *Filesystem) DownloadFile(path string, user *acl.User) (ReadSeekCloser, error) {
+func (fs *Filesystem) DownloadFile(path string, user *acl.User) (ReadSeekCloser, int64, error) {
 	if !fs.permissions.Match(acl.PermissionScopeDownload, path, user) {
-		return nil, acl.ErrPermissionDenied
+		return nil, 0, acl.ErrPermissionDenied
 	}
 
 	// check for private
 	if match, found := fs.permissions.MatchNoDefault(acl.PermissionScopePrivate, path, user); found && !match {
-		return nil, os.ErrNotExist
+		return nil, 0, os.ErrNotExist
 	}
 
 	if fs.hideRE != nil {
 		if fs.hideRE.MatchString(path) {
 			// do not leak any information, just pretend
 			// it doesnt exist
-			return nil, os.ErrNotExist
+			return nil, 0, os.ErrNotExist
 		}
-	}
-
-	// check if we have a cached copy
-	value, found := cache.Get(path)
-	if found {
-		return value.(ReadSeekCloser), nil
 	}
 
 	f, err := fs.chroot.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return f, nil
+	finfo, err := fs.chroot.Stat(path)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return f, finfo.Size(), nil
 }
 
 // UploadFile checks to see if the user has permission to write the file (checking upload

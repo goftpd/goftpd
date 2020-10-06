@@ -66,6 +66,8 @@ func (c commandAPPE) Execute(ctx context.Context, s Session, params []string) er
 		return nil
 	}
 
+	// TODO bring this in line with STOR
+
 	s.ClearData()
 
 	s.ReplyWithMessage(StatusDataClosedOK, fmt.Sprintf("OK, received %d bytes.", n))

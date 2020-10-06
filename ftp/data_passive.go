@@ -109,6 +109,7 @@ func (s *Server) newPassiveDataConn(ctx context.Context, dataProtected bool) (*p
 // Close implements the io.Closer interface and also allows us
 // to call our onClose fn that will cleanup server state
 func (d *passiveDataConn) Close() error {
+
 	d.Lock()
 	defer d.Unlock()
 
