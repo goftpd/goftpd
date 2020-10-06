@@ -169,6 +169,7 @@ func (d *passiveDataConn) Read(p []byte) (int, error) {
 
 	n, err := d.conn.Read(p)
 	d.read += n
+
 	return n, err
 }
 
@@ -188,6 +189,7 @@ func (d *passiveDataConn) Write(p []byte) (int, error) {
 
 	n, err := d.conn.Write(p)
 	d.written += n
+
 	return n, err
 }
 

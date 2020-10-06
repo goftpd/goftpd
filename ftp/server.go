@@ -90,7 +90,7 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	}
 	defer l.Close()
 
-	conns := make(chan net.Conn, 10)
+	conns := make(chan net.Conn, 100)
 
 	var errg errgroup.Group
 
@@ -123,6 +123,8 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		return nil
 	})
 
+	// TODO
+	// we can limit the total number of connections to the site here
 	errg.Go(func() error {
 		for {
 			select {

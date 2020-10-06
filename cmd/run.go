@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"log"
 
 	"github.com/goftpd/goftpd/config"
 	"github.com/goftpd/goftpd/ftp"
@@ -50,6 +51,8 @@ func init() {
 			}
 
 			ctx := context.Background()
+
+			log.Printf("listen and serve..")
 
 			if err := server.ListenAndServe(ctx); err != nil {
 				return err

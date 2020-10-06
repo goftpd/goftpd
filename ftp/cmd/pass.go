@@ -70,15 +70,12 @@ func (c commandPASS) Execute(ctx context.Context, s Session, params []string) er
 
 	s.ReplyWithArgs(StatusUserLoggedIn, fmt.Sprintf("Welcome back %s!", s.Login()))
 
-	err = s.Auth().UpdateUser(s.Login(), func(u *acl.User) error {
-		u.LastLoginAt = time.Now()
-		return nil
-	})
-	if err != nil {
-		s.SetLogin("")
-		s.ReplyStatus(StatusNotLoggedIn)
-		return err
-	}
+	go func() {
+		s.Auth().UpdateUser(s.Login(), func(u *acl.User) error {
+			u.LastLoginAt = time.Now()
+			return nil
+		})
+	}()
 
 	s.SetState(SessionStateLoggedIn)
 

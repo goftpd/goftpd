@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/dgraph-io/ristretto"
 	"github.com/go-git/go-billy/v5"
 	"github.com/goftpd/goftpd/acl"
 	"github.com/pkg/errors"
@@ -60,17 +61,30 @@ type Filesystem struct {
 	shadow      Shadow
 	permissions *acl.Permissions
 	buffPool    sync.Pool
+
+	cache *ristretto.Cache
 }
 
 // NewFilesystem creates a new Filesystem with the given chroot (underlying fs) shadow (stores user/group meta data
 // and permissions (check acl for paths, users and different scopes)
 func NewFilesystem(opts *FilesystemOpts, chroot billy.Filesystem, shadow Shadow, permissions *acl.Permissions) (*Filesystem, error) {
+
+	cache, err := ristretto.NewCache(&ristretto.Config{
+		NumCounters: 1e7,     // number of keys to track frequency of (10M).
+		MaxCost:     5 << 30, // maximum cost of cache (1GB).
+		BufferItems: 64,      // number of keys per Get buffer.
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	fs := Filesystem{
 		FilesystemOpts: opts,
 		chroot:         chroot,
 		shadow:         shadow,
 		permissions:    permissions,
 		buffPool:       newBufferPoolWithSize(256 * 1024),
+		cache:          cache,
 	}
 
 	return &fs, nil
@@ -157,6 +171,12 @@ func (fs *Filesystem) DownloadFile(path string, user *acl.User) (ReadSeekCloser,
 			// it doesnt exist
 			return nil, os.ErrNotExist
 		}
+	}
+
+	// check if we have a cached copy
+	value, found := cache.Get(path)
+	if found {
+		return value.(ReadSeekCloser), nil
 	}
 
 	f, err := fs.chroot.Open(path)

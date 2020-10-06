@@ -5,17 +5,18 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/alexedwards/argon2id"
 	"github.com/dgraph-io/badger/v2"
 	"github.com/gobwas/glob"
 	"github.com/oragono/go-ident"
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack/v5"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -62,8 +63,9 @@ type Entry interface {
 
 // BadgerAuthenticator implements an Authenticator using a badge key/value store
 type BadgerAuthenticator struct {
-	db         *badger.DB
-	bufferPool sync.Pool
+	db          *badger.DB
+	bufferPool  sync.Pool
+	argonParams *argon2id.Params
 }
 
 // NewBadgerAuthenticator takes in options and a badger DB and returns a new BadgerAuthenticator
@@ -75,6 +77,18 @@ func NewBadgerAuthenticator(db *badger.DB) *BadgerAuthenticator {
 			New: func() interface{} {
 				return &bytes.Buffer{}
 			},
+		},
+		argonParams: &argon2id.Params{
+			// TODO
+			// 10M keeps it snappy, might want to make this
+			// configurable, but i think under the circumstances
+			// this is more than enough; if they have this hash server
+			// is already compromised?
+			Memory:      10 * 1024,
+			Iterations:  1,
+			Parallelism: uint8(runtime.NumCPU()),
+			SaltLength:  16,
+			KeyLength:   32,
 		},
 	}
 }
@@ -135,7 +149,12 @@ func (a *BadgerAuthenticator) AddUser(name, pass string) (*User, error) {
 	}
 
 	// hash password
-	hashed, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
+	// hashed, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	hashed, err := argon2id.CreateHash(pass, a.argonParams)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +162,7 @@ func (a *BadgerAuthenticator) AddUser(name, pass string) (*User, error) {
 	u = &User{}
 
 	u.Name = name
-	u.Password = hashed
+	u.Password = []byte(hashed)
 	u.CreatedAt = time.Now()
 	u.Groups = make(map[string]*GroupSettings, 0)
 	u.IPMasks = make([]string, 0)
@@ -390,11 +409,15 @@ func (a *BadgerAuthenticator) CheckPassword(name, pass string) bool {
 		return false
 	}
 
-	if err := bcrypt.CompareHashAndPassword(u.Password, []byte(pass)); err != nil {
+	//if err := bcrypt.CompareHashAndPassword(u.Password, []byte(pass)); err != nil {
+	//return false
+	//}
+	match, err := argon2id.ComparePasswordAndHash(pass, string(u.Password))
+	if err != nil {
 		return false
 	}
 
-	return true
+	return match
 }
 
 // ChangePassword changes the password for the User

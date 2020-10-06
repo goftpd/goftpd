@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"runtime"
@@ -29,6 +28,9 @@ type Session struct {
 
 	control *Control
 	data    cmd.DataConn
+
+	//
+	sbuilder strings.Builder
 
 	// state
 	state           cmd.SessionState
@@ -219,7 +221,7 @@ func (s *Session) reply(code int, message string) {
 func (s *Session) Flush() error {
 	defer func() {
 		s.code = 0
-		s.buffer = []string{}
+		s.buffer = nil
 	}()
 
 	if len(s.buffer) == 0 {
@@ -229,24 +231,23 @@ func (s *Session) Flush() error {
 	s.activeMtx.Lock()
 	if !s.active {
 		s.activeMtx.Unlock()
-		log.Println("quit")
 		return nil
 	}
 	s.activeMtx.Unlock()
 
-	b := strings.Builder{}
+	s.sbuilder.Reset()
 
-	if _, err := b.WriteString(fmt.Sprintf("%d", s.code)); err != nil {
+	if _, err := s.sbuilder.WriteString(fmt.Sprintf("%d", s.code)); err != nil {
 		return cmd.NewFatalError(err)
 	}
 
 	if len(s.buffer) > 1 {
-		if _, err := b.WriteString("-"); err != nil {
+		if _, err := s.sbuilder.WriteString("-"); err != nil {
 			return cmd.NewFatalError(err)
 		}
 	}
 
-	if _, err := b.WriteString(" "); err != nil {
+	if _, err := s.sbuilder.WriteString(" "); err != nil {
 		return cmd.NewFatalError(err)
 	}
 
@@ -254,18 +255,18 @@ func (s *Session) Flush() error {
 		if len(p) == 0 {
 			continue
 		}
-		if _, err := b.WriteString(p + "\r\n"); err != nil {
+		if _, err := s.sbuilder.WriteString(p + "\r\n"); err != nil {
 			return cmd.NewFatalError(err)
 		}
 	}
 
 	if len(s.buffer) > 1 {
-		if _, err := b.WriteString(fmt.Sprintf("%d End.\r\n", s.code)); err != nil {
+		if _, err := s.sbuilder.WriteString(fmt.Sprintf("%d End.\r\n", s.code)); err != nil {
 			return cmd.NewFatalError(err)
 		}
 	}
 
-	_, err := s.control.writer.WriteString(b.String())
+	_, err := s.control.writer.WriteString(s.sbuilder.String())
 	if err != nil {
 		return cmd.NewFatalError(err)
 	}
@@ -275,7 +276,7 @@ func (s *Session) Flush() error {
 	}
 
 	if len(os.Getenv("DEBUG")) > 0 {
-		fmt.Fprintf(os.Stderr, ">>> %s", b.String())
+		fmt.Fprintf(os.Stderr, ">>> %s", s.sbuilder.String())
 	}
 
 	return nil
@@ -361,7 +362,10 @@ func (s *Session) serve(ctx context.Context, server *Server, conn net.Conn) {
 // handleCommand takes in the client input in the form of a slice of strings
 // and tries to find and execute a command. can return an error
 func (session *Session) handleCommand(ctx context.Context, fields []string) error {
+	// start := time.Now()
+
 	defer func() {
+		// log.Printf("%s - %s", fields[0], time.Since(start))
 		if err := session.Flush(); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR session flush: %s\n", err)
 		}
