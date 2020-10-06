@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"strings"
 )
 
 /*
@@ -40,14 +39,22 @@ type commandTYPE struct{}
 func (c commandTYPE) RequireState() SessionState { return SessionStateLoggedIn }
 
 func (c commandTYPE) Execute(ctx context.Context, s Session, params []string) error {
-	switch strings.ToUpper(params[0]) {
+	switch params[0] {
+	case "a":
+		fallthrough
 	case "A":
 		// TODO:
 		// according to https://cr.yp.to/ftp/type.html we should check for second
 		// param
 		s.SetBinaryMode(false)
+
+	case "i":
+		fallthrough
 	case "I":
 		s.SetBinaryMode(true)
+
+	case "l":
+		fallthrough
 	case "L":
 		// TODO:
 		// according to https://cr.yp.to/ftp/type.html we should check for second

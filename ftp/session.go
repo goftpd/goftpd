@@ -16,6 +16,7 @@ import (
 	"github.com/goftpd/goftpd/ftp/cmd"
 	"github.com/goftpd/goftpd/script"
 	"github.com/goftpd/goftpd/vfs"
+	"github.com/spacemonkeygo/openssl"
 )
 
 // Session represents an FTP client connection's control
@@ -284,6 +285,20 @@ func (s *Session) Flush() error {
 
 // Upgrade a sessions underlying connection to use TLS
 func (s *Session) Upgrade() error {
+	// TODO make this optional?
+	conn, err := openssl.Server(s.control, s.server.sslCtx)
+	if err != nil {
+		return err
+	}
+
+	if err := conn.Handshake(); err != nil {
+		return err
+	}
+
+	s.control = newControl(conn)
+
+	return nil
+
 	tlsConn := tls.Server(s.control, s.server.TLSConfig())
 	if err := tlsConn.Handshake(); err != nil {
 		return err
@@ -364,15 +379,17 @@ func (s *Session) serve(ctx context.Context, server *Server, conn net.Conn) {
 func (session *Session) handleCommand(ctx context.Context, fields []string) error {
 	// start := time.Now()
 
+	ftpCommand := strings.ToUpper(fields[0])
+
 	defer func() {
-		// log.Printf("%s - %s", fields[0], time.Since(start))
+		// log.Printf("%s - DEFER - %s", ftpCommand, time.Since(start))
 		if err := session.Flush(); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR session flush: %s\n", err)
 		}
 	}()
 
 	// TODO: ugly as sin
-	c, ok := cmd.CommandMap[strings.ToUpper(fields[0])]
+	c, ok := cmd.CommandMap[ftpCommand]
 
 	if !ok {
 
@@ -405,6 +422,16 @@ func (session *Session) handleCommand(ctx context.Context, fields []string) erro
 		return nil
 	}
 
+	/*
+		2020/10/07 07:10:58 TYPE - PRE MAP - 90ns
+		2020/10/07 07:10:58 TYPE - PRE STATE - 9.177µs
+		2020/10/07 07:10:58 TYPE - PRE USER CHK - 13.05µs
+		2020/10/07 07:10:58 TYPE - PRE HOOK - 1.059119ms
+		2020/10/07 07:10:58 TYPE - PRE EXEC - 1.067454ms
+		2020/10/07 07:10:58 TYPE - PRE POST - 1.071809ms
+		2020/10/07 07:10:58 TYPE - DEFER - 1.075274ms
+	*/
+
 	if session.State() < c.RequireState() {
 		switch c.RequireState() {
 		case cmd.SessionStateAuth:
@@ -417,12 +444,14 @@ func (session *Session) handleCommand(ctx context.Context, fields []string) erro
 		return nil
 	}
 
-	if session.State() == cmd.SessionStateLoggedIn {
-		user := session.User()
-		if user == nil || !user.DeletedAt.IsZero() {
-			return errors.New("deleted user")
+	/*
+		if session.State() == cmd.SessionStateLoggedIn {
+			user := session.User()
+			if user == nil || !user.DeletedAt.IsZero() {
+				return errors.New("deleted user")
+			}
 		}
-	}
+	*/
 
 	// pre command hook
 	if err := session.server.se.Do(ctx, fields, script.ScriptHookPre, session); err != nil {
@@ -445,7 +474,7 @@ func (session *Session) handleCommand(ctx context.Context, fields []string) erro
 		return nil
 	}
 
-	session.lastCommand = strings.ToUpper(fields[0])
+	session.lastCommand = ftpCommand
 
 	// post command hook
 	if err := session.server.se.Do(ctx, fields, script.ScriptHookPost, session); err != nil {

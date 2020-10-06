@@ -15,6 +15,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.5.0
 	github.com/segmentio/fasthash v1.0.3
+	github.com/spacemonkeygo/openssl v0.0.0-20181017203307-c2dcc5cca94a
 	github.com/spf13/cobra v0.0.5
 	github.com/vadv/gopher-lua-libs v0.1.1
 	github.com/vmihailenco/msgpack v4.0.4+incompatible

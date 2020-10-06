@@ -3,7 +3,6 @@ package ftp
 import (
 	"context"
 	"crypto/rand"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -13,6 +12,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/spacemonkeygo/openssl"
 )
 
 type passiveDataConn struct {
@@ -72,7 +73,8 @@ func (s *Server) newPassiveDataConn(ctx context.Context, dataProtected bool) (*p
 		addr := net.JoinHostPort(s.BindIP, strconv.Itoa(int(port)))
 
 		if dataProtected {
-			ln, err = tls.Listen("tcp", addr, s.tlsConfig)
+			ln, err = openssl.Listen("tcp", addr, s.sslCtx)
+			// ln, err = tls.Listen("tcp", addr, s.tlsConfig)
 		} else {
 			ln, err = net.Listen("tcp", addr)
 		}
@@ -148,9 +150,13 @@ func (d *passiveDataConn) Accept(ctx context.Context, ln net.Listener) {
 
 	if d.dataProtected {
 		// handshake
-		if err := d.conn.(*tls.Conn).Handshake(); err != nil {
+		if err := d.conn.(*openssl.Conn).Handshake(); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR HANDSHAKE PASV: %s", err)
 		}
+		// TODO make this optional?
+		// if err := d.conn.(*tls.Conn).Handshake(); err != nil {
+		// 	fmt.Fprintf(os.Stderr, "ERROR HANDSHAKE PASV: %s", err)
+		// }
 	}
 }
 

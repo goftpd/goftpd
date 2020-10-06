@@ -8,12 +8,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/spacemonkeygo/openssl"
 )
 
 type activeDataConn struct {
 	ctx context.Context
 
 	tlsConfig *tls.Config
+	sslCtx    *openssl.Ctx
 
 	conn net.Conn
 
@@ -43,9 +46,10 @@ func (s *Server) newActiveDataConn(ctx context.Context, param string, dataProtec
 	host := parts[0] + "." + parts[1] + "." + parts[2] + "." + parts[3]
 
 	d := activeDataConn{
-		ctx:  ctx,
-		host: host,
-		port: port,
+		ctx:    ctx,
+		host:   host,
+		port:   port,
+		sslCtx: s.sslCtx,
 	}
 
 	if dataProtected {
@@ -79,6 +83,11 @@ func (d *activeDataConn) connect() error {
 	}
 
 	if d.tlsConfig != nil {
+		// TODO make this optional?
+		d.conn, err = openssl.Server(d.conn, d.sslCtx)
+		if err != nil {
+			return err
+		}
 
 		/*
 			That is to say, it does not matter which side initiates the
@@ -86,7 +95,7 @@ func (d *activeDataConn) connect() error {
 			connection via the accept() call; the FTP client, as defined in
 			[RFC-959], is always the TLS client, as defined in [RFC-2246].
 		*/
-		d.conn = tls.Server(d.conn, d.tlsConfig)
+		// d.conn = tls.Server(d.conn, d.tlsConfig)
 	}
 
 	return nil

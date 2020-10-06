@@ -11,6 +11,7 @@ import (
 	"github.com/goftpd/goftpd/acl"
 	"github.com/goftpd/goftpd/script"
 	"github.com/goftpd/goftpd/vfs"
+	"github.com/spacemonkeygo/openssl"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -48,12 +49,18 @@ type Server struct {
 	passivePortsMax *big.Int
 	passivePorts    map[int64]struct{}
 	passivePortsMtx sync.Mutex
+
+	sslCtx *openssl.Ctx
 }
 
 // NewServer returns a Server using the supplied ServerOpts and VFS. Will
 // fail if some required options are missing or it's unable to load
 // the specified TLS cert/key files.
 func NewServer(opts *ServerOpts, fs vfs.VFS, auth acl.Authenticator, se script.Engine) (*Server, error) {
+	sslCtx, err := openssl.NewCtxFromFiles(opts.TLSCertFile, opts.TLSKeyFile)
+	if err != nil {
+		return nil, err
+	}
 
 	s := Server{
 		ServerOpts: opts,
@@ -67,6 +74,7 @@ func NewServer(opts *ServerOpts, fs vfs.VFS, auth acl.Authenticator, se script.E
 		},
 		passivePorts:    make(map[int64]struct{}, 0),
 		passivePortsMax: big.NewInt(int64(opts.PassivePorts[1] - opts.PassivePorts[0])),
+		sslCtx:          sslCtx,
 	}
 
 	return &s, nil
