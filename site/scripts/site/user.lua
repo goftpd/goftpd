@@ -15,6 +15,8 @@ if not acl:MatchTarget(caller, target) then
 end
 
 session:Reply(226, "User: " .. target.Name)
+session:Reply(226, "Credits: " .. target.Credits / 1024 .. "MB")
+session:Reply(226, "Ratio: 1:" .. target.Ratio)
 session:Reply(226, "Added By: " .. target.AddedBy)
 session:Reply(226, "Created: " .. target.CreatedAt:Format("15:04 02/01/2006"))
 session:Reply(226, "Last Login: " .. target.LastLoginAt:Format("15:04 02/01/2006"))
