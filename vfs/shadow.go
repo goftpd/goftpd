@@ -2,6 +2,7 @@ package vfs
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -30,6 +31,14 @@ type Entry struct {
 	// meta
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+// prints the crc in hex, or if nothing is set 00000000
+func (e Entry) CRCHex() string {
+	if e.CRC == 0 {
+		return "00000000"
+	}
+	return fmt.Sprintf("%x", e.CRC)
 }
 
 // Shadow represents a shadow filesystem where meta data is

@@ -12,6 +12,7 @@ import (
 	"github.com/goftpd/goftpd/acl"
 	"github.com/goftpd/goftpd/ftp/cmd"
 	"github.com/pkg/errors"
+	filepathLib "github.com/vadv/gopher-lua-libs/filepath"
 	lua "github.com/yuin/gopher-lua"
 	"github.com/yuin/gopher-lua/parse"
 	"golang.org/x/sync/errgroup"
@@ -28,10 +29,9 @@ type LUAEngine struct {
 	// compiled lua byte code is stored here
 	byteCode map[string]*lua.FunctionProto
 
-	// need to organise our commands for easy access to paths
-	// i.e. map[FTPCommand][]Command
 	commands map[string][]Command
 
+	// TODO
 	// pool of lstate would be nice, but no Reset
 }
 
@@ -187,6 +187,11 @@ func (le *LUAEngine) Do(pctx context.Context, fields []string, hook ScriptHook, 
 		fn := func(ctx context.Context) func() error {
 			return func() error {
 				L := lua.NewState()
+
+				// TODO:
+				// is this expensive to always call? bench it!
+				filepathLib.Preload(L)
+
 				defer L.Close()
 
 				// TODO: do we need to use context as it degrades performance quite a lot

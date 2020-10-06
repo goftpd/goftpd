@@ -43,6 +43,8 @@ type VFS interface {
 	ListDir(string, *acl.User) (FileList, error)
 	Size(string) (int64, error)
 
+	GetEntry(string) (*Entry, error)
+
 	GetBuffer() *[]byte
 	PutBuffer(*[]byte)
 }
@@ -85,6 +87,10 @@ func NewFilesystem(opts *FilesystemOpts, chroot billy.Filesystem, shadow Shadow,
 	}
 
 	return &fs, nil
+}
+
+func (fs *Filesystem) GetEntry(path string) (*Entry, error) {
+	return fs.shadow.Get(path)
 }
 
 func (fs *Filesystem) GetBuffer() *[]byte {
