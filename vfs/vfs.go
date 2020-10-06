@@ -1,12 +1,15 @@
 package vfs
 
 import (
+	"hash"
+	"hash/crc32"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/goftpd/goftpd/acl"
@@ -38,6 +41,7 @@ type VFS interface {
 	DeleteFile(string, *acl.User) error
 	DeleteDir(string, *acl.User) error
 	ListDir(string, *acl.User) (FileList, error)
+	Size(string) (int64, error)
 
 	GetBuffer() *[]byte
 	PutBuffer(*[]byte)
@@ -60,6 +64,7 @@ type Filesystem struct {
 	shadow      Shadow
 	permissions *acl.Permissions
 	buffPool    sync.Pool
+	crcPool     sync.Pool
 }
 
 // NewFilesystem creates a new Filesystem with the given chroot (underlying fs) shadow (stores user/group meta data
@@ -72,6 +77,11 @@ func NewFilesystem(opts *FilesystemOpts, chroot billy.Filesystem, shadow Shadow,
 		shadow:         shadow,
 		permissions:    permissions,
 		buffPool:       newBufferPoolWithSize(256 * 1024),
+		crcPool: sync.Pool{
+			New: func() interface{} {
+				return crc32.NewIEEE()
+			},
+		},
 	}
 
 	return &fs, nil
@@ -105,6 +115,19 @@ func (fs *Filesystem) Stop() error {
 	return nil
 }
 
+func (fs *Filesystem) Size(path string) (int64, error) {
+	finfo, err := fs.chroot.Stat(path)
+	if err != nil {
+		return 0, err
+	}
+
+	if finfo.IsDir() {
+		return 0, errors.New("is dir")
+	}
+
+	return finfo.Size(), nil
+}
+
 // MakeDir checks to see if the user has permission to create a new directory. Does so if allowed
 func (fs *Filesystem) MakeDir(path string, user *acl.User) error {
 	if !fs.permissions.Match(acl.PermissionScopeMakeDir, path, user) {
@@ -133,7 +156,14 @@ func (fs *Filesystem) MakeDir(path string, user *acl.User) error {
 		return err
 	}
 
-	if err := fs.shadow.Set(path, user.Name, user.PrimaryGroup); err != nil {
+	e := Entry{
+		IsDir:     true,
+		User:      user.Name,
+		Group:     user.PrimaryGroup,
+		CreatedAt: time.Now(),
+	}
+
+	if err := fs.shadow.Set(path, &e); err != nil {
 		return err
 	}
 
@@ -165,6 +195,9 @@ func (fs *Filesystem) DownloadFile(path string, user *acl.User) (ReadSeekCloser,
 		return nil, 0, err
 	}
 
+	// TODO
+	// if not in the shadow do we want to update
+
 	finfo, err := fs.chroot.Stat(path)
 	if err != nil {
 		return nil, 0, err
@@ -178,7 +211,7 @@ func (fs *Filesystem) DownloadFile(path string, user *acl.User) (ReadSeekCloser,
 // truncate a file
 func (fs *Filesystem) UploadFile(path string, user *acl.User) (io.WriteCloser, error) {
 	// TODO
-	// need to check if we are currently uploading
+	// need to check if we are currently uploading can add this state to the Entry
 
 	if !fs.permissions.Match(acl.PermissionScopeUpload, path, user) {
 		return nil, acl.ErrPermissionDenied
@@ -213,9 +246,18 @@ func (fs *Filesystem) UploadFile(path string, user *acl.User) (io.WriteCloser, e
 		return nil, err
 	}
 
+	start := time.Now()
+	h := fs.crcPool.Get().(hash.Hash32)
 	// wrap the file in our special Writer that allows us to manage the shadow fs
-	writer := newWriteCloser(f, func() error {
-		return fs.shadow.Set(path, user.Name, user.PrimaryGroup)
+	writer := newWriteCloser(h, f, func(w *writeCloser) error {
+		entry := Entry{
+			User:      user.Name,
+			Group:     user.PrimaryGroup,
+			CreatedAt: start,
+			CRC:       h.Sum32(),
+		}
+		fs.crcPool.Put(h)
+		return fs.shadow.Set(path, &entry)
 	})
 
 	return writer, nil
@@ -267,9 +309,18 @@ func (fs *Filesystem) ResumeUploadFile(path string, user *acl.User) (io.WriteClo
 		return nil, err
 	}
 
+	start := time.Now()
+	h := fs.crcPool.Get().(hash.Hash32)
 	// wrap the file in our special Writer that allows us to manage the shadow fs
-	writer := newWriteCloser(f, func() error {
-		return fs.shadow.Set(path, user.Name, user.PrimaryGroup)
+	writer := newWriteCloser(h, f, func(w *writeCloser) error {
+		entry := Entry{
+			User:      user.Name,
+			Group:     user.PrimaryGroup,
+			CreatedAt: start,
+			CRC:       h.Sum32(),
+		}
+		fs.crcPool.Put(h)
+		return fs.shadow.Set(path, &entry)
 	})
 
 	return writer, nil
@@ -324,11 +375,25 @@ func (fs *Filesystem) RenameFile(oldpath, newpath string, user *acl.User) error 
 		return err
 	}
 
+	entry, _ := fs.shadow.Get(oldpath)
+	if entry == nil {
+		entry = &Entry{}
+	}
+	// we ignore the error as we will fill in the blanks
+
+	entry.User = user.Name
+	entry.Group = user.PrimaryGroup
+	// TODO:
+	// if crc doesnt exist, rescan?
+	if entry.CreatedAt.IsZero() {
+		entry.CreatedAt = time.Now()
+	}
+
 	if err := fs.shadow.Remove(oldpath); err != nil {
 		return err
 	}
 
-	if err := fs.shadow.Set(newpath, user.Name, user.PrimaryGroup); err != nil {
+	if err := fs.shadow.Set(newpath, entry); err != nil {
 		return err
 	}
 
@@ -460,6 +525,8 @@ func (fs *Filesystem) ListDir(path string, user *acl.User) (FileList, error) {
 
 	var results FileList
 
+	var username, group string
+
 	for _, f := range files {
 		fullpath := filepath.Join(path, f.Name())
 
@@ -474,17 +541,21 @@ func (fs *Filesystem) ListDir(path string, user *acl.User) (FileList, error) {
 			continue
 		}
 
-		username, group, err := fs.shadow.Get(fullpath)
+		// TODO do we want to use a pool here for entrys
+		entry, err := fs.shadow.Get(fullpath)
 		if err != nil {
 			username = fs.DefaultUser
 			group = fs.DefaultGroup
+		} else {
+			username = entry.User
+			group = entry.Group
 		}
 
-		// check if we have permission to see user and group, as it's hide, permissions are reversed
-		if fs.permissions.Match(acl.PermissionScopeHideUser, fullpath, user) {
+		// check if we have permission to see user and group
+		if !fs.permissions.Match(acl.PermissionScopeShowUser, fullpath, user) {
 			username = fs.DefaultUser
 		}
-		if fs.permissions.Match(acl.PermissionScopeHideGroup, fullpath, user) {
+		if fs.permissions.Match(acl.PermissionScopeShowGroup, fullpath, user) {
 			group = fs.DefaultGroup
 		}
 
@@ -501,12 +572,12 @@ func (fs *Filesystem) ListDir(path string, user *acl.User) (FileList, error) {
 // checkOwnership checks to see if a user is an owner of a given path. Returns bool
 // and an error
 func (fs *Filesystem) checkOwnership(path string, user *acl.User) (bool, error) {
-	username, _, err := fs.shadow.Get(path)
+	entry, err := fs.shadow.Get(path)
 	if err != nil {
 		return false, err
 	}
 
-	if username != strings.ToLower(user.Name) {
+	if entry.User != strings.ToLower(user.Name) {
 		return false, nil
 	}
 

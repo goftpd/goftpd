@@ -2,13 +2,13 @@ package vfs
 
 import (
 	"bytes"
-	"encoding/binary"
-	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/dgraph-io/badger/v2"
 	"github.com/pkg/errors"
-	"github.com/segmentio/fasthash/fnv1a"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // Error thrown when the requested path does not exist
@@ -18,12 +18,25 @@ var ErrNoPath = errors.New("path does not exist")
 var shadowEntrySplitter = ":"
 var shadowEntrySplitterBytes = []byte(shadowEntrySplitter)
 
+type Entry struct {
+	IsDir bool
+
+	// an id would be nicer for renaming
+	User  string
+	Group string
+
+	CRC uint32
+
+	// meta
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 // Shadow represents a shadow filesystem where meta data is
 // stored
 type Shadow interface {
-	Hash(string) []byte
-	Set(string, string, string) error
-	Get(string) (string, string, error)
+	Set(string, *Entry) error
+	Get(string) (*Entry, error)
 	Remove(string) error
 	Close() error
 }
@@ -33,7 +46,8 @@ type Shadow interface {
 // Paths are lower cased and hashed for security. And currently
 // only
 type ShadowStore struct {
-	store *badger.DB
+	store      *badger.DB
+	bufferPool sync.Pool
 }
 
 // NewShadowStore creates a new ShadowStore with the given badger db. Caller
@@ -41,53 +55,38 @@ type ShadowStore struct {
 func NewShadowStore(db *badger.DB) *ShadowStore {
 	s := ShadowStore{
 		store: db,
+		bufferPool: sync.Pool{
+			New: func() interface{} {
+				return &bytes.Buffer{}
+			},
+		},
 	}
 
 	return &s
 }
 
-// Hash the given path into a byte using fnv1a
-func (s *ShadowStore) Hash(path string) []byte {
-	h := fnv1a.HashString64(strings.ToLower(path))
-
-	// encode to bytes
-	b := make([]byte, 8)
-	binary.LittleEndian.PutUint64(b, h)
-
-	return b
-}
-
-// createVal does some validation on the given user and group to make sure that
-// they can safely be placed in the store
-func (s *ShadowStore) createVal(user, group string) ([]byte, error) {
-	if strings.Contains(user, shadowEntrySplitter) {
-		return nil, errors.Errorf("user can't contain '%s'", shadowEntrySplitter)
-	}
-
-	if strings.Contains(group, shadowEntrySplitter) {
-		return nil, errors.Errorf("group can't contain '%s'", shadowEntrySplitter)
-	}
-
-	val := []byte(strings.ToLower(fmt.Sprintf("%s%s%s", user, shadowEntrySplitter, group)))
-
-	return val, nil
-}
-
 // Set a path with it's meta data to the store. Overwrites any
 // existing value.
-func (s *ShadowStore) Set(path, user, group string) error {
-	key := s.Hash(path)
-	val, err := s.createVal(user, group)
-	if err != nil {
-		return err
-	}
+func (s *ShadowStore) Set(path string, entry *Entry) error {
+	key := []byte(strings.ToLower(path))
 
-	err = s.store.Update(func(txn *badger.Txn) error {
-		if err := txn.Set(key, val); err != nil {
+	entry.UpdatedAt = time.Now()
+
+	err := s.store.Update(func(tx *badger.Txn) error {
+		enc := msgpack.GetEncoder()
+		defer msgpack.PutEncoder(enc)
+
+		b := s.bufferPool.Get().(*bytes.Buffer)
+		b.Reset()
+		defer s.bufferPool.Put(b)
+
+		enc.Reset(b)
+
+		if err := enc.Encode(entry); err != nil {
 			return err
 		}
 
-		return nil
+		return tx.Set(key, b.Bytes())
 	})
 
 	if err != nil {
@@ -98,58 +97,45 @@ func (s *ShadowStore) Set(path, user, group string) error {
 }
 
 // Get tries to retrieve the user and group for a path
-func (s *ShadowStore) Get(path string) (string, string, error) {
-	key := s.Hash(path)
+func (s *ShadowStore) Get(path string) (*Entry, error) {
+	key := []byte(strings.ToLower(path))
 
-	var user, group string
+	var entry Entry
 
-	err := s.store.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(key)
+	err := s.store.View(func(tx *badger.Txn) error {
+		item, err := tx.Get(key)
 		if err != nil {
 			return err
 		}
 
-		err = item.Value(func(val []byte) error {
-			parts := bytes.Split(val, shadowEntrySplitterBytes)
-			if len(parts) != 2 {
-				return errors.Errorf("expected 2 parts to key: '%x': '%s'", key, string(val))
-			}
+		return item.Value(func(val []byte) error {
+			dec := msgpack.GetDecoder()
+			defer msgpack.PutDecoder(dec)
 
-			user = string(parts[0])
-			group = string(parts[1])
+			dec.ResetBytes(val)
 
-			return nil
+			return dec.Decode(&entry)
 		})
-
-		if err != nil {
-			return err
-		}
-
-		return nil
 	})
 
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
-			return "", "", ErrNoPath
+			return nil, ErrNoPath
 		}
 
 		// err has been set
-		return "", "", err
+		return nil, err
 	}
 
-	return user, group, nil
+	return &entry, nil
 }
 
 // Remove deletes an entry from the store
 func (s *ShadowStore) Remove(path string) error {
-	key := s.Hash(path)
+	key := []byte(strings.ToLower(path))
 
-	err := s.store.Update(func(txn *badger.Txn) error {
-		if err := txn.Delete(key); err != nil {
-			return err
-		}
-
-		return nil
+	err := s.store.Update(func(tx *badger.Txn) error {
+		return tx.Delete(key)
 	})
 
 	if err != nil {

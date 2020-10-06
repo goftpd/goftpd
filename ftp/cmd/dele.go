@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"errors"
+
+	"github.com/goftpd/goftpd/acl"
 )
 
 /*
@@ -31,9 +33,28 @@ func (c commandDELE) Execute(ctx context.Context, s Session, params []string) er
 		return errors.New("no user found")
 	}
 
+	size, err := s.FS().Size(path)
+	if err != nil {
+		s.ReplyError(StatusActionNotOK, err)
+		return nil
+	}
+
 	if err := s.FS().DeleteFile(path, user); err != nil {
 		s.ReplyError(StatusActionNotOK, err)
 		return nil
+	}
+
+	// TODO
+	// only remove credits if its our file?
+	if size > 1024 {
+		err := s.Auth().UpdateUser(user.Name, func(u *acl.User) error {
+			u.Credits -= (size / 1024) * int64(u.Ratio)
+			return nil
+		})
+		if err != nil {
+			s.ReplyError(StatusActionNotOK, err)
+			return nil
+		}
 	}
 
 	s.ReplyStatus(StatusFileActionOK)

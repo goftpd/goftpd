@@ -75,13 +75,13 @@ fs rootpath			site/data
 # optional path where shadow fs database will be kept
 fs shadow_db		shadow.db
 # default_* if user or group isnt found in shadowdb or 
-# permissions are to hide user/group use this user/group
+# permissions are to show user/group use this user/group
 fs default_user		nobody
 fs default_group	ohhai
 
-# regexp. hide these from listing and prevent from being downloaded
+# regexp. show these from listing and prevent from being downloaded
 # also protects them from rename and delete
-fs hide (?i)\.(message)$
+fs show (?i)\.(message)$
 ```
 
 ## To Run
@@ -133,8 +133,8 @@ acl resume /path** -user =group !*
 acl resumeown /path** -user =group *
 acl makedir /path** -user =group !*
 acl list /path** -user =group *
-acl hideuser /** !=staff *
-acl hidegroup /** !=staff *
+acl showuser /** !=staff *
+acl showgroup /** !=staff *
 ```
 
 The filesystem currently does not use UID/GID as a way of storing meta data.

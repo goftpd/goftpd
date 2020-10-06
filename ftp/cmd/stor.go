@@ -48,6 +48,7 @@ func (c commandSTOR) Execute(ctx context.Context, s Session, params []string) er
 		s.ReplyError(StatusActionNotOK, err)
 		return nil
 	}
+	defer writer.Close()
 
 	if s.DataProtected() {
 		s.ReplyWithMessage(StatusTransferStatusOK, "Opening connection for upload using TLS/SSL.")
