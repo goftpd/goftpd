@@ -364,15 +364,17 @@ func (s *Session) serve(ctx context.Context, server *Server, conn net.Conn) {
 func (session *Session) handleCommand(ctx context.Context, fields []string) error {
 	// start := time.Now()
 
+	ftpCommand := strings.ToUpper(fields[0])
+
 	defer func() {
-		// log.Printf("%s - %s", fields[0], time.Since(start))
+		// log.Printf("%s - %s", ftpCommand, time.Since(start))
 		if err := session.Flush(); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR session flush: %s\n", err)
 		}
 	}()
 
 	// TODO: ugly as sin
-	c, ok := cmd.CommandMap[strings.ToUpper(fields[0])]
+	c, ok := cmd.CommandMap[ftpCommand]
 
 	if !ok {
 
@@ -445,7 +447,7 @@ func (session *Session) handleCommand(ctx context.Context, fields []string) erro
 		return nil
 	}
 
-	session.lastCommand = strings.ToUpper(fields[0])
+	session.lastCommand = ftpCommand
 
 	// post command hook
 	if err := session.server.se.Do(ctx, fields, script.ScriptHookPost, session); err != nil {
