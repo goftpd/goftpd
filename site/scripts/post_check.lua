@@ -20,7 +20,7 @@ if err then
 	return true
 end
 
-local ret = os.execute('/bin/bash site/bin/zipscript.sh "' .. filename .. '" "' .. dir .. '" ' .. entry:CRCHex())
+local ret = os.execute('/bin/sh site/bin/zipscript.sh "' .. filename .. '" "' .. dir .. '" ' .. entry:CRCHex())
 if ret > 0 then
 	session:Reply(500, "Error in post_check")
 	return false

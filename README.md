@@ -5,84 +5,9 @@
 Aim is to be a replacement for glftpd, but with less bloat, more testing and be
 more extendable. 
 
-A working config:
-
-```
-# variables
-# ---------
-# you can set variables that will be reused in the script, there are some
-# caveats; variables must be preceded by a space, i.e. $var would work, 
-# but !$var would not.
-var admins -user =admin
-var special =group1 =group2
-
-# acl settings
-# ------------
-# the glob syntax is:
-# * matches matches any sequence of non-Separator characters
-# ** matches any sequence of characters, including Seperator
-# ? matches any single non-Separator character
-# [cHaRs] matches any range of charecters in "cHaRs"
-
-# permissions always default to false, matches are always from largest to smallest
-# in terms of pattern length, and first pattern to match wins, no more are
-# checked. this means that there is no need to append '!*' to rules
-
-# acl download also includes the ability to list
-acl download 	/**		*
-acl upload 		/**		*
-acl resume 		/**		*
-acl resumeown	/**		*
-acl delete		/**		*
-acl deleteown	/**		*
-acl resume		/**		*
-acl resumeown	/**		*
-acl show_user 	/**		*
-acl show_group	/**		*
-
-acl show_user 	/requests/** $admins
-acl show_group	/requests/** $admins
-
-# special makedir rules
-acl makedir		/mp3/????-??-??/*/*		*
-acl makedir 	/mp3/* $admins
-
-# an example of an admin setup
-acl private /admin $admins
-acl private /admin/** $admins
-
-# an example pre setup
-acl private /groups $admins $special
-acl private /groups/** $admins $special
-
-# server settings
-# ---------------
-server sitename_short 	go
-server sitename_long 	goftpd
-server host				::
-server port				2121
-# range of passive ports allowed  to be used
-server passive_ports	1000 5000
-# used for pasv
-server public_ip		127.0.0.1
-# required unless tls_autogen (TODO)
-server tls_cert_file	site/cert.pem
-server tls_key_file		site/key.pem
-
-# fs based 
-# --------
-fs rootpath			site/data
-# optional path where shadow fs database will be kept
-fs shadow_db		shadow.db
-# default_* if user or group isnt found in shadowdb or 
-# permissions are to show user/group use this user/group
-fs default_user		nobody
-fs default_group	ohhai
-
-# regexp. show these from listing and prevent from being downloaded
-# also protects them from rename and delete
-fs show (?i)\.(message)$
-```
+## Config
+Please look in `site/config/goftpd.conf` for a working config with lots of
+comments and an overview of current features.
 
 ## To Run
 Make sure you have Go installed (https://golang.org/dl/). Download this repo,
@@ -98,14 +23,14 @@ If you don't want to edit the conf, then:
 
 `mkdir site/data && mkdir site/config`
 
-Create some self signed certs (feature to autogen this will be added):
+Then run it (change 127.0.0.1 for your host):
 
-`openssl req -x509 -newkey rsa:4096 -keyout site/config/key.pem -out site/config/cert.pem -days 365 -nodes`
-
-Then run it:
-
-`go run main.go adduser -u goftpd -p ohemgeedontusethis`
-`go run main.go run`
+```
+go run main.go gencert -h 127.0.0.1
+go run main.go adduser -u goftpd -p ohemgeedontusethis
+go run main.go addip -u goftpd -m *@*.*.*.*
+go run main.go run
+```
 
 Congratulations, you are now a hacker.
 
@@ -155,3 +80,7 @@ script post 'RETR' event site/scripts/wowow.lua
 script pre 'MKD' trigger site/scripts/omg.lua
 script post 'SITE BOOP' trigger site/scripts/doaboop.lua
 ```
+
+## Issues
+Currently there are some issues for 32bit based systems. Once resolved in
+dependencies we should be able to compile.

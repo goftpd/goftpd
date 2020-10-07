@@ -51,6 +51,13 @@ func NewLUAEngine(lines []string) (*LUAEngine, error) {
 		}
 
 		if len(fields) < 5 {
+			if len(fields) > 1 {
+				if fields[0] == "lua_path" {
+					os.Setenv("LUA_PATH", fields[1])
+					continue
+				}
+			}
+
 			return nil, errors.New("expected at least 5 fields")
 		}
 
