@@ -40,11 +40,11 @@ func newTestUser(name string, groups ...string) *acl.User {
 
 	if len(groups) > 0 {
 		u.PrimaryGroup = groups[0]
-		u.Groups = make(map[string]acl.GroupSettings, 0)
+		u.Groups = make(map[string]*acl.GroupSettings, 0)
 	}
 
 	for _, g := range groups {
-		u.Groups[g] = acl.GroupSettings{}
+		u.Groups[g] = &acl.GroupSettings{}
 	}
 
 	return u
@@ -85,7 +85,8 @@ func createFile(t *testing.T, fs *Filesystem, path, contents string) {
 func setShadowOwner(t *testing.T, fs *Filesystem, path string, owner *acl.User) {
 	t.Helper()
 
-	if err := fs.shadow.Set(path, owner.Name, owner.PrimaryGroup); err != nil {
+	entry := NewEntry(owner.Name, owner.PrimaryGroup)
+	if err := fs.shadow.Set(path, &entry); err != nil {
 		t.Fatalf("unexpected err setting shadow owner: %s", err)
 	}
 }

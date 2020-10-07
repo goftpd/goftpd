@@ -162,12 +162,8 @@ func (fs *Filesystem) MakeDir(path string, user *acl.User) error {
 		return err
 	}
 
-	e := Entry{
-		IsDir:     true,
-		User:      user.Name,
-		Group:     user.PrimaryGroup,
-		CreatedAt: time.Now(),
-	}
+	e := NewEntry(user.Name, user.PrimaryGroup)
+	e.IsDir = true
 
 	if err := fs.shadow.Set(path, &e); err != nil {
 		return err
@@ -229,39 +225,35 @@ func (fs *Filesystem) UploadFile(path string, user *acl.User) (io.WriteCloser, e
 	}
 
 	// check if we would be able to delete it
-	if !fs.permissions.Match(acl.PermissionScopeDelete, path, user) {
+	if _, err := fs.chroot.Stat(path); err == nil {
+		if !fs.permissions.Match(acl.PermissionScopeDelete, path, user) {
 
-		// not allowed to globally delete, check if this is ours and we can delete our own
-		if !fs.permissions.Match(acl.PermissionScopeDeleteOwn, path, user) {
-			return nil, acl.ErrPermissionDenied
-		}
+			// not allowed to globally delete, check if this is ours and we can delete our own
+			if !fs.permissions.Match(acl.PermissionScopeDeleteOwn, path, user) {
+				return nil, acl.ErrPermissionDenied
+			}
 
-		owner, err := fs.checkOwnership(path, user)
-		if err != nil {
-			return nil, err
-		}
+			owner, err := fs.checkOwnership(path, user)
+			if err != nil {
+				return nil, err
+			}
 
-		if !owner {
-			return nil, acl.ErrPermissionDenied
+			if !owner {
+				return nil, acl.ErrPermissionDenied
+			}
 		}
 	}
 
 	f, err := fs.chroot.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, defaultPerms)
-
 	if err != nil {
 		return nil, err
 	}
 
-	start := time.Now()
+	entry := NewEntry(user.Name, user.PrimaryGroup)
 	h := fs.crcPool.Get().(hash.Hash32)
 	// wrap the file in our special Writer that allows us to manage the shadow fs
 	writer := newWriteCloser(h, f, func(w *writeCloser) error {
-		entry := Entry{
-			User:      user.Name,
-			Group:     user.PrimaryGroup,
-			CreatedAt: start,
-			CRC:       h.Sum32(),
-		}
+		entry.CRC = h.Sum32()
 		fs.crcPool.Put(h)
 		return fs.shadow.Set(path, &entry)
 	})
@@ -315,16 +307,11 @@ func (fs *Filesystem) ResumeUploadFile(path string, user *acl.User) (io.WriteClo
 		return nil, err
 	}
 
-	start := time.Now()
+	entry := NewEntry(user.Name, user.PrimaryGroup)
 	h := fs.crcPool.Get().(hash.Hash32)
 	// wrap the file in our special Writer that allows us to manage the shadow fs
 	writer := newWriteCloser(h, f, func(w *writeCloser) error {
-		entry := Entry{
-			User:      user.Name,
-			Group:     user.PrimaryGroup,
-			CreatedAt: start,
-			CRC:       h.Sum32(),
-		}
+		entry.CRC = h.Sum32()
 		fs.crcPool.Put(h)
 		return fs.shadow.Set(path, &entry)
 	})
@@ -561,7 +548,7 @@ func (fs *Filesystem) ListDir(path string, user *acl.User) (FileList, error) {
 		if !fs.permissions.Match(acl.PermissionScopeShowUser, fullpath, user) {
 			username = fs.DefaultUser
 		}
-		if fs.permissions.Match(acl.PermissionScopeShowGroup, fullpath, user) {
+		if !fs.permissions.Match(acl.PermissionScopeShowGroup, fullpath, user) {
 			group = fs.DefaultGroup
 		}
 

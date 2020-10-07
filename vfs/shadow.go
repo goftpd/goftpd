@@ -33,6 +33,14 @@ type Entry struct {
 	UpdatedAt time.Time
 }
 
+func NewEntry(user, group string) Entry {
+	return Entry{
+		User:      strings.ToLower(user),
+		Group:     strings.ToLower(group),
+		CreatedAt: time.Now(),
+	}
+}
+
 // prints the crc in hex, or if nothing is set 00000000
 func (e Entry) CRCHex() string {
 	if e.CRC == 0 {

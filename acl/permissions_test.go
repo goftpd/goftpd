@@ -21,8 +21,8 @@ func TestNewRule(t *testing.T) {
 				PermissionScopeDownload,
 				glob.MustCompile("/path/test/dir"),
 				&ACL{
-					collection{false, []string{"user"}, nil},
-					collection{true, nil, nil},
+					collection{false, false, false, []string{"user"}, nil},
+					collection{true, false, false, nil, nil},
 				},
 			},
 			nil,
@@ -34,8 +34,8 @@ func TestNewRule(t *testing.T) {
 				PermissionScopeDownload,
 				glob.MustCompile("/path/test/dir"),
 				&ACL{
-					collection{true, nil, nil},
-					collection{false, []string{"user"}, nil},
+					collection{true, false, false, nil, nil},
+					collection{false, false, false, []string{"user"}, nil},
 				},
 			},
 			nil,

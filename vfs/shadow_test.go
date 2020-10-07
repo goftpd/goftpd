@@ -1,7 +1,7 @@
 package vfs
 
 import (
-	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/dgraph-io/badger/v2"
@@ -34,23 +34,24 @@ func TestShadowStore(t *testing.T) {
 
 	// do adds
 	for _, e := range entries {
-		if err := ss.Set(e.path, e.user, e.group); err != nil {
+		entry := NewEntry(e.user, e.group)
+		if err := ss.Set(e.path, &entry); err != nil {
 			t.Fatalf("unexpected err adding %s:%s:%s: %s", e.path, e.user, e.group, err)
 		}
 	}
 
 	for _, e := range expected {
-		user, group, err := ss.Get(e.path)
+		entry, err := ss.Get(e.path)
 		if err != nil {
 			t.Fatalf("unexpected err getting %s: %s", e.path, err)
 		}
 
-		if user != e.user {
-			t.Errorf("expected user for '%s' to be '%s' got '%s'", e.path, e.user, user)
+		if entry.User != e.user {
+			t.Errorf("expected user for '%s' to be '%s' got '%s'", e.path, e.user, entry.User)
 		}
 
-		if group != e.group {
-			t.Errorf("expected group for '%s' to be '%s' got '%s'", e.path, e.group, group)
+		if entry.Group != e.group {
+			t.Errorf("expected group for '%s' to be '%s' got '%s'", e.path, e.group, entry.Group)
 		}
 	}
 }
@@ -65,70 +66,31 @@ func TestShadowStoreRemove(t *testing.T) {
 		group string = "group"
 	)
 
-	if err := ss.Set(path, user, group); err != nil {
+	entry := NewEntry(user, group)
+	if err := ss.Set(path, &entry); err != nil {
 		t.Fatalf("expected nil on add got: %s", err)
 	}
 
-	guser, ggroup, err := ss.Get(path)
+	gentry, err := ss.Get(path)
 	if err != nil {
 		t.Fatalf("expected nil on get got: %s", err)
 	}
 
-	if guser != user {
-		t.Errorf("expected user to be '%s' got '%s'", user, guser)
+	if gentry.User != user {
+		t.Errorf("expected user to be '%s' got '%s'", user, gentry.User)
 	}
 
-	if ggroup != group {
-		t.Errorf("expected group to be '%s' got '%s'", group, ggroup)
+	if gentry.Group != group {
+		t.Errorf("expected group to be '%s' got '%s'", group, gentry.Group)
 	}
 
 	if err := ss.Remove(path); err != nil {
 		t.Fatalf("expected nil on remove got: %s", err)
 	}
 
-	if _, _, err := ss.Get(path); err != ErrNoPath {
+	if _, err := ss.Get(path); err != ErrNoPath {
 		t.Fatalf("expected ErrNoPath on post remove get, got: %s", err)
 	}
-}
-
-func TestShadowStoreCreateVal(t *testing.T) {
-	var ss ShadowStore
-
-	val, err := ss.createVal("user", "group")
-	if err != nil {
-		t.Fatalf("unexpected err: %s", err)
-	}
-
-	if string(val) != "user:group" {
-		t.Fatalf("unexpected val: '%s'", string(val))
-	}
-
-	val, err = ss.createVal("user:", "group")
-	if err == nil {
-		t.Fatal("expected bad user createVal to error")
-	}
-
-	if err.Error() != "user can't contain ':'" {
-		t.Fatalf("unexpected error for bad user createVal: %s", err)
-	}
-
-	val, err = ss.createVal("user", "group:")
-	if err == nil {
-		t.Fatal("expected bad group createVal to error")
-	}
-
-	if err.Error() != "group can't contain ':'" {
-		t.Fatalf("unexpected error for bad group createVal: %s", err)
-	}
-
-	err = ss.Set("/", "user:", "group")
-	if err == nil {
-		t.Fatal("expected err but got nil")
-	}
-	if err.Error() != "user can't contain ':'" {
-		t.Fatalf("unexpected error for bad user Set: %s", err)
-	}
-
 }
 
 func TestShadowStoreBadValue(t *testing.T) {
@@ -138,7 +100,7 @@ func TestShadowStoreBadValue(t *testing.T) {
 	path := "/a/b/c"
 	badValue := "bad"
 
-	key := ss.Hash(path)
+	key := []byte(strings.ToLower(path))
 
 	err := ss.(*ShadowStore).store.Update(func(txn *badger.Txn) error {
 		return txn.Set(key, []byte(badValue))
@@ -147,14 +109,12 @@ func TestShadowStoreBadValue(t *testing.T) {
 		t.Fatalf("unexpected error for manual insert of key: %s", err)
 	}
 
-	_, _, err = ss.Get(path)
+	_, err = ss.Get(path)
 	if err == nil {
 		t.Fatal("expected error on get")
 	}
 
-	expectedErr := fmt.Sprintf("expected 2 parts to key: '%x': '%s'", key, badValue)
-
-	if err.Error() != expectedErr {
+	if !strings.Contains(err.Error(), "msgpack: invalid") {
 		t.Fatalf("unexpected error: %s", err)
 	}
 }

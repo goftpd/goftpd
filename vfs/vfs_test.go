@@ -59,17 +59,17 @@ func TestNewFilesystemMakeDir(t *testing.T) {
 				checkErr(t, err, tt.err)
 
 				if tt.err == nil {
-					username, group, err := fs.shadow.Get(tt.path)
+					entry, err := fs.shadow.Get(tt.path)
 					if err != nil {
 						t.Fatalf("expected nil but got '%s' for shadow.Get", err)
 					}
 
-					if username != tt.user.Name {
-						t.Errorf("expected shadow to be '%s' but got '%s'", tt.user.Name, username)
+					if entry.User != tt.user.Name {
+						t.Errorf("expected shadow to be '%s' but got '%s'", tt.user.Name, entry.User)
 					}
 
-					if group != tt.user.PrimaryGroup {
-						t.Errorf("expected shadow to be '%s' but got '%s'", tt.user.PrimaryGroup, group)
+					if entry.Group != tt.user.PrimaryGroup {
+						t.Errorf("expected shadow to be '%s' but got '%s'", tt.user.PrimaryGroup, entry.Group)
 					}
 				}
 			},
@@ -114,7 +114,7 @@ func TestDownloadFile(t *testing.T) {
 
 				createFile(t, fs, "/file", "HELLO")
 
-				reader, err := fs.DownloadFile(tt.path, tt.user)
+				reader, _, err := fs.DownloadFile(tt.path, tt.user)
 				checkErr(t, err, tt.err)
 
 				if tt.err == nil {
@@ -139,24 +139,15 @@ func TestUploadFile(t *testing.T) {
 
 	var tests = []struct {
 		path    string
-		dupe    bool
 		content string
 		user    *acl.User
 		err     error
 	}{
 		{
 			"/file",
-			false,
 			"HELLO",
 			newTestUser("user", "nobody"),
 			nil,
-		},
-		{
-			"/file",
-			true,
-			"HELLO",
-			newTestUser("user", "nobody"),
-			errors.New("file already exists"),
 		},
 	}
 
@@ -170,10 +161,6 @@ func TestUploadFile(t *testing.T) {
 				}
 				defer stopMemoryFilesystem(t, fs)
 
-				if tt.dupe {
-					createFile(t, fs, tt.path, tt.content)
-				}
-
 				writer, err := fs.UploadFile(tt.path, tt.user)
 				checkErr(t, err, tt.err)
 
@@ -185,17 +172,17 @@ func TestUploadFile(t *testing.T) {
 						t.Fatalf("unexpected err in close: %s", err)
 					}
 
-					username, group, err := fs.shadow.Get(tt.path)
+					entry, err := fs.shadow.Get(tt.path)
 					if err != nil {
 						t.Fatalf("unexpected err in shadow.Get: %s", err)
 					}
 
-					if username != tt.user.Name {
-						t.Errorf("expected username to be '%s' got: '%s'", tt.user.Name, username)
+					if entry.User != tt.user.Name {
+						t.Errorf("expected username to be '%s' got: '%s'", tt.user.Name, entry.User)
 					}
 
-					if group != "nobody" {
-						t.Errorf("expected group to be nobody got: '%s'", group)
+					if entry.Group != "nobody" {
+						t.Errorf("expected group to be nobody got: '%s'", entry.Group)
 					}
 				}
 			},
@@ -314,17 +301,17 @@ func TestResumeUploadFile(t *testing.T) {
 						t.Fatalf("unexpected err in close: %s", err)
 					}
 
-					username, group, err := fs.shadow.Get(tt.path)
+					entry, err := fs.shadow.Get(tt.path)
 					if err != nil {
 						t.Fatalf("unexpected err in shadow.Get: %s", err)
 					}
 
-					if username != tt.user.Name {
-						t.Errorf("expected username to be '%s' got: '%s'", tt.user.Name, username)
+					if entry.User != tt.user.Name {
+						t.Errorf("expected username to be '%s' got: '%s'", tt.user.Name, entry.User)
 					}
 
-					if group != "nobody" {
-						t.Errorf("expected group to be nobody got: '%s'", group)
+					if entry.Group != "nobody" {
+						t.Errorf("expected group to be nobody got: '%s'", entry.Group)
 					}
 
 					// get file and make sure it is content * 2
@@ -453,22 +440,22 @@ func TestRenameFile(t *testing.T) {
 
 				if tt.err == nil {
 					// check that shadow doesnt have the old path
-					if _, _, err := fs.shadow.Get(tt.path); err != ErrNoPath {
+					if _, err := fs.shadow.Get(tt.path); err != ErrNoPath {
 						t.Fatalf("expected Get to be ErrNoPath got: %s", err)
 					}
 
 					// check that shadow has the new path
-					username, group, err := fs.shadow.Get(tt.newpath)
+					entry, err := fs.shadow.Get(tt.newpath)
 					if err != nil {
 						t.Fatalf("unexpected err in shadow.Get: %s", err)
 					}
 
-					if username != tt.user.Name {
-						t.Errorf("expected username to be '%s' got: '%s'", tt.user.Name, username)
+					if entry.User != tt.user.Name {
+						t.Errorf("expected username to be '%s' got: '%s'", tt.user.Name, entry.User)
 					}
 
-					if group != "nobody" {
-						t.Errorf("expected group to be nobody got: '%s'", group)
+					if entry.Group != "nobody" {
+						t.Errorf("expected group to be nobody got: '%s'", entry.Group)
 					}
 				}
 			},
@@ -560,7 +547,7 @@ func TestDeleteFile(t *testing.T) {
 
 				if tt.err == nil {
 					// check that shadow doesnt have the old path
-					if _, _, err := fs.shadow.Get(tt.path); err != ErrNoPath {
+					if _, err := fs.shadow.Get(tt.path); err != ErrNoPath {
 						t.Fatalf("expected Get to be ErrNoPath got: %s", err)
 					}
 				}
@@ -569,7 +556,7 @@ func TestDeleteFile(t *testing.T) {
 	}
 }
 
-func TestListDirSortByName(t *testing.T) {
+func TestListDirSortByNameNoShow(t *testing.T) {
 	owner := newTestUser("user", "group")
 	rules := []string{
 		"download /** *",
@@ -578,7 +565,58 @@ func TestListDirSortByName(t *testing.T) {
 	// potential to create random fails, but lets see
 	now := time.Now()
 	expectedDetailed := fmt.Sprintf(
-		"-rw-rw-rw- 1 user group            9 %s f0\r\n-rw-rw-rw- 1 user group            9 %s f1\r\n-rw-rw-rw- 1 user group            9 %s f2\r\n-rw-rw-rw- 1 user group            9 %s f3\r\n-rw-rw-rw- 1 user group            9 %s f4\r\n-rw-rw-rw- 1 user group            9 %s f5\r\n-rw-rw-rw- 1 user group            9 %s f6\r\n-rw-rw-rw- 1 user group            9 %s f7\r\n-rw-rw-rw- 1 user group            9 %s f8\r\n-rw-rw-rw- 1 user group            9 %s f9\r\n",
+		"total 10\n-rw-rw-rw- 1 nobody nogroup            9 %s f0\n-rw-rw-rw- 1 nobody nogroup            9 %s f1\n-rw-rw-rw- 1 nobody nogroup            9 %s f2\n-rw-rw-rw- 1 nobody nogroup            9 %s f3\n-rw-rw-rw- 1 nobody nogroup            9 %s f4\n-rw-rw-rw- 1 nobody nogroup            9 %s f5\n-rw-rw-rw- 1 nobody nogroup            9 %s f6\n-rw-rw-rw- 1 nobody nogroup            9 %s f7\n-rw-rw-rw- 1 nobody nogroup            9 %s f8\n-rw-rw-rw- 1 nobody nogroup            9 %s f9\n",
+		now.Format("Jan _2 15:04"),
+		now.Format("Jan _2 15:04"),
+		now.Format("Jan _2 15:04"),
+		now.Format("Jan _2 15:04"),
+		now.Format("Jan _2 15:04"),
+		now.Format("Jan _2 15:04"),
+		now.Format("Jan _2 15:04"),
+		now.Format("Jan _2 15:04"),
+		now.Format("Jan _2 15:04"),
+		now.Format("Jan _2 15:04"),
+	)
+
+	fs := newMemoryFilesystem(t, rules)
+	if fs == nil {
+		t.Fatal("unexpected nil for fs")
+	}
+	defer stopMemoryFilesystem(t, fs)
+
+	for i := 0; i < 10; i++ {
+		path := fmt.Sprintf("/f%d", i)
+		createFile(t, fs, path, "LIST FILE")
+		setShadowOwner(t, fs, path, owner)
+	}
+
+	files, err := fs.ListDir("/", owner)
+	checkErr(t, err, nil)
+
+	if len(files) != 10 {
+		t.Errorf("expected 10 files found %d", len(files))
+	}
+
+	files.SortByName()
+
+	if string(files.Detailed()) != expectedDetailed {
+		t.Errorf("unexpected detailed:\n%s\nexpected:\n%s", string(files.Detailed()), expectedDetailed)
+	}
+
+}
+
+func TestListDirSortByNameShow(t *testing.T) {
+	owner := newTestUser("user", "group")
+	rules := []string{
+		"download /** *",
+		"showuser /** *",
+		"showgroup /** *",
+	}
+
+	// potential to create random fails, but lets see
+	now := time.Now()
+	expectedDetailed := fmt.Sprintf(
+		"total 10\n-rw-rw-rw- 1 user group            9 %s f0\n-rw-rw-rw- 1 user group            9 %s f1\n-rw-rw-rw- 1 user group            9 %s f2\n-rw-rw-rw- 1 user group            9 %s f3\n-rw-rw-rw- 1 user group            9 %s f4\n-rw-rw-rw- 1 user group            9 %s f5\n-rw-rw-rw- 1 user group            9 %s f6\n-rw-rw-rw- 1 user group            9 %s f7\n-rw-rw-rw- 1 user group            9 %s f8\n-rw-rw-rw- 1 user group            9 %s f9\n",
 		now.Format("Jan _2 15:04"),
 		now.Format("Jan _2 15:04"),
 		now.Format("Jan _2 15:04"),
