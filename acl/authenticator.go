@@ -11,6 +11,10 @@ import (
 	"sync"
 	"time"
 
+	// TODO
+	// this is slightly slow as it does some
+	// string conversions, might be better
+	// to wrap it ourselves
 	"github.com/alexedwards/argon2id"
 	"github.com/dgraph-io/badger/v2"
 	"github.com/gobwas/glob"
@@ -149,11 +153,6 @@ func (a *BadgerAuthenticator) AddUser(name, pass string) (*User, error) {
 	}
 
 	// hash password
-	// hashed, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
 	hashed, err := argon2id.CreateHash(pass, a.argonParams)
 	if err != nil {
 		return nil, err
@@ -410,9 +409,6 @@ func (a *BadgerAuthenticator) CheckPassword(name, pass string) bool {
 		return false
 	}
 
-	//if err := bcrypt.CompareHashAndPassword(u.Password, []byte(pass)); err != nil {
-	//return false
-	//}
 	match, err := argon2id.ComparePasswordAndHash(pass, string(u.Password))
 	if err != nil {
 		return false
