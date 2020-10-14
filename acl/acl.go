@@ -12,7 +12,16 @@ import (
 var AllowedUserAndGroupCharsRE = regexp.MustCompile(`[a-zA-Z0-9]`)
 
 var ErrPermissionDenied = errors.New("acl permission denied")
-var ErrBadInput = errors.New("bad input")
+
+var (
+	ErrACLBadInput          = errors.New("bad input")
+	ErrACLMalformedNegative = errors.New("expected string after '!'")
+	ErrACLMalformedUser     = errors.New("expected string after '-'")
+	ErrACLBadUser           = errors.New("bad user '*'")
+	ErrACLMalformedGroup    = errors.New("expected string after '-'")
+	ErrACLBadGroup          = errors.New("bad group '*'")
+	ErrACLInvalidCharacters = errors.New("contains invalid characters")
+)
 
 // collection is a container for the three different permission types,
 // users and group. Provides utilities for checking if the collection
@@ -56,7 +65,7 @@ type ACL struct {
 // The default is to block permission
 func NewFromString(s string) (*ACL, error) {
 	if len(s) == 0 {
-		return nil, ErrBadInput
+		return nil, ErrACLBadInput
 	}
 
 	var a ACL
@@ -70,7 +79,7 @@ func NewFromString(s string) (*ACL, error) {
 
 		if f[0] == '!' {
 			if len(f) <= 1 {
-				return nil, errors.New("expected string after '!'")
+				return nil, ErrACLMalformedNegative
 			}
 
 			c = &a.blocked
@@ -82,17 +91,17 @@ func NewFromString(s string) (*ACL, error) {
 		case '-':
 			// user specific acl
 			if len(f) <= 1 {
-				return nil, errors.New("expected string after '-'")
+				return nil, ErrACLMalformedUser
 			}
 
 			f = f[1:]
 
 			if f == "*" {
-				return nil, errors.New("bad user '*'")
+				return nil, ErrACLBadUser
 			}
 
 			if !AllowedUserAndGroupCharsRE.MatchString(f) {
-				return nil, errors.Errorf("user contains invalid characters: '%s'", f)
+				return nil, ErrACLInvalidCharacters
 			}
 
 			c.users = append(c.users, f)
@@ -100,17 +109,17 @@ func NewFromString(s string) (*ACL, error) {
 		case '=':
 			// group specific acl
 			if len(f) <= 1 {
-				return nil, errors.New("expected string after '='")
+				return nil, ErrACLMalformedGroup
 			}
 
 			f = f[1:]
 
 			if f == "*" {
-				return nil, errors.New("bad group '*'")
+				return nil, ErrACLBadGroup
 			}
 
 			if !AllowedUserAndGroupCharsRE.MatchString(f) {
-				return nil, errors.Errorf("group contains invalid characters: '%s'", f)
+				return nil, ErrACLInvalidCharacters
 			}
 
 			c.groups = append(c.groups, f)
@@ -127,11 +136,9 @@ func NewFromString(s string) (*ACL, error) {
 				c.all = true
 
 			default:
-				return nil, errors.Errorf("unexpected string in acl input: '%s'", f)
+				return nil, ErrACLInvalidCharacters
 			}
-
 		}
-
 	}
 
 	return &a, nil
@@ -163,7 +170,7 @@ func (a *ACL) MatchTarget(caller, target *User) bool {
 		return false
 	}
 
-	if a.allowed.self && caller.Name == target.Name {
+	if caller.Name == target.Name {
 		if a.allowed.self {
 			return true
 		} else if a.blocked.self {

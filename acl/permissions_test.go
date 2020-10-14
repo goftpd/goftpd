@@ -3,212 +3,205 @@ package acl
 import (
 	"fmt"
 	"testing"
-
-	"github.com/gobwas/glob"
-	"github.com/pkg/errors"
 )
 
-func TestNewRule(t *testing.T) {
-	var tests = []struct {
-		input string
-		rule  Rule
-		err   error
-	}{
-		{
-			"download /path/test/dir -user !*",
-			Rule{
-				"/path/test/dir",
-				PermissionScopeDownload,
-				glob.MustCompile("/path/test/dir"),
-				&ACL{
-					collection{false, false, false, []string{"user"}, nil},
-					collection{true, false, false, nil, nil},
+func TestPermissions(t *testing.T) {
+	type input struct {
+		line string
+		want error
+	}
+
+	newInput := func(scope, acl string, want error) input {
+		return input{
+			line: fmt.Sprintf("%s %s", scope, acl),
+			want: want,
+		}
+	}
+
+	type test struct {
+		inputs        []input
+		matchUser     *User
+		matchPath     string
+		want          bool
+		wantNoDefault bool
+		wantMatch     bool
+	}
+
+	for scope := range StringToPermissionScope {
+		tests := map[string]test{
+			"basic validation": test{
+				inputs: []input{
+					newInput(scope, "/**", ErrRuleInvalidInput),
 				},
 			},
-			nil,
-		},
-		{
-			"download /path/test/dir !-user *",
-			Rule{
-				"/path/test/dir",
-				PermissionScopeDownload,
-				glob.MustCompile("/path/test/dir"),
-				&ACL{
-					collection{true, false, false, nil, nil},
-					collection{false, false, false, []string{"user"}, nil},
+			"unknown scope": test{
+				inputs: []input{
+					newInput("downloaad", "/[* *", ErrRuleUnknownPermissionScope),
 				},
 			},
-			nil,
-		},
-		{
-			"notexist /path/test/dir !-user *",
-			Rule{},
-			errors.New("unknown permission scope 'notexist'"),
-		},
-		{
-			"bad",
-			Rule{},
-			errors.New("rule requires minimum of 3 fields"),
-		},
-		{
-			"bad line",
-			Rule{},
-			errors.New("rule requires minimum of 3 fields"),
-		},
-		{
-			"download /path/test !-*",
-			Rule{
-				"/path/test",
-				PermissionScopeDownload,
-				glob.MustCompile("/path/test"),
-				nil,
+			"bad acl": test{
+				inputs: []input{
+					newInput(scope, "/* -@$", ErrACLInvalidCharacters),
+				},
 			},
-			errors.New("bad user '*'"),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(
-			tt.input,
-			func(t *testing.T) {
-				rule, err := NewRule(tt.input)
-				checkErr(t, err, tt.err)
-
-				if tt.rule.path != rule.path {
-					t.Errorf("expected path to be '%s' but got '%s'", tt.rule.path, rule.path)
-				}
-
-				if tt.rule.scope != rule.scope {
-					t.Errorf("expected scope to be '%s' but got '%s'", tt.rule.scope, rule.scope)
-				}
-
-				if tt.rule.acl != nil && rule.acl != nil {
-					if !compareACL(tt.rule.acl, rule.acl) {
-						t.Error("acl do not match")
-					}
-				}
+			"glob compilation": test{
+				inputs: []input{
+					newInput(scope, "/[* *", ErrRuleBadGlob),
+				},
 			},
-		)
-	}
-}
-
-func TestNewPermissions(t *testing.T) {
-	var tests = []struct {
-		lines []string
-		err   error
-	}{
-		{
-			[]string{},
-			nil,
-		},
-		{
-			[]string{
-				"download /dir/a *",
-				"download /dir/b !*",
+			"any user matches": test{
+				inputs: []input{
+					newInput(scope, "/** *", nil),
+				},
+				matchUser:     newUser("alice", "users"),
+				matchPath:     "/goftpd",
+				want:          true,
+				wantNoDefault: true,
+				wantMatch:     true,
 			},
-			nil,
-		},
-	}
+			"any user does not match": test{
+				inputs: []input{
+					newInput(scope, "/** !*", nil),
+				},
+				matchUser:     newUser("alice", "users"),
+				matchPath:     "/goftpd",
+				want:          false,
+				wantNoDefault: false,
+				wantMatch:     true,
+			},
+			"super user always matches": test{
+				inputs: []input{
+					newInput(scope, "/** !*", nil),
+				},
+				matchUser:     SuperUser,
+				matchPath:     "/goftpd",
+				want:          true,
+				wantNoDefault: true,
+				wantMatch:     true,
+			},
+			"any user matches on nested rule": test{
+				inputs: []input{
+					newInput(scope, "/** !*", nil),
+					newInput(scope, "/dir/* *", nil),
+				},
+				matchUser:     newUser("alice", "users"),
+				matchPath:     "/dir/goftpd",
+				want:          true,
+				wantNoDefault: true,
+				wantMatch:     true,
+			},
+			"user matches on nested rule": test{
+				inputs: []input{
+					newInput(scope, "/** !*", nil),
+					newInput(scope, "/dir/* -alice", nil),
+				},
+				matchUser:     newUser("alice", "users"),
+				matchPath:     "/dir/goftpd",
+				want:          true,
+				wantNoDefault: true,
+				wantMatch:     true,
+			},
+			"group matches on nested rule": test{
+				inputs: []input{
+					newInput(scope, "/** !*", nil),
+					newInput(scope, "/dir/* =users", nil),
+				},
+				matchUser:     newUser("alice", "users"),
+				matchPath:     "/dir/goftpd",
+				want:          true,
+				wantNoDefault: true,
+				wantMatch:     true,
+			},
+			"group does not match when user is prohibited": test{
+				inputs: []input{
+					newInput(scope, "/** !*", nil),
+					newInput(scope, "/dir/* !-alice =users", nil),
+				},
+				matchUser:     newUser("alice", "users"),
+				matchPath:     "/dir/goftpd",
+				want:          false,
+				wantNoDefault: false,
+				wantMatch:     true,
+			},
+			"user does not match when group is prohibited": test{
+				inputs: []input{
+					newInput(scope, "/** !*", nil),
+					newInput(scope, "/dir/* -alice !=users", nil),
+				},
+				matchUser:     newUser("alice", "users"),
+				matchPath:     "/dir/goftpd",
+				want:          false,
+				wantNoDefault: false,
+				wantMatch:     true,
+			},
+			"no rule": test{
+				inputs:        []input{},
+				matchUser:     newUser("alice", "users"),
+				matchPath:     "/goftpd",
+				want:          false,
+				wantNoDefault: false,
+				wantMatch:     false,
+			},
+			"no explicit match": test{
+				inputs: []input{
+					newInput(scope, "/** -bob", nil),
+				},
+				matchUser:     newUser("alice", "users"),
+				matchPath:     "/goftpd",
+				want:          false,
+				wantNoDefault: false,
+				wantMatch:     false,
+			},
+			"no path match": test{
+				inputs: []input{
+					newInput(scope, "/foo/** *", nil),
+				},
+				matchUser:     newUser("alice", "users"),
+				matchPath:     "/goftpd",
+				want:          false,
+				wantNoDefault: false,
+				wantMatch:     false,
+			},
+		}
 
-	for idx, tt := range tests {
-		t.Run(
-			fmt.Sprintf("%d", idx),
-			func(t *testing.T) {
+		for name, tc := range tests {
+			// run a sub test so we dont fail all of our tests
+			t.Run(fmt.Sprintf("%s: %s", scope, name), func(t *testing.T) {
 
+				// create our rules from our inputs
 				var rules []Rule
-				for _, l := range tt.lines {
-					r, err := NewRule(l)
-					if err != nil {
-						t.Fatalf("unable to parse rule '%s': %s", l, err)
+
+				for _, i := range tc.inputs {
+					rule, err := NewRule(i.line)
+					if err != i.want {
+						t.Fatalf("expected input error: %#v, got: %#v", i.want, err)
 					}
-					rules = append(rules, r)
+
+					// if this is a failing error, stop
+					if i.want != nil {
+						return
+					}
+
+					rules = append(rules, rule)
 				}
 
-				_, err := NewPermissions(rules)
-				checkErr(t, err, tt.err)
-			},
-		)
-	}
-}
+				// create permission and match it with our inputs
+				permissions := NewPermissions(rules)
 
-func TestPermissionsCheck(t *testing.T) {
-	var tests = []struct {
-		input    string
-		path     string
-		scope    PermissionScope
-		user     *User
-		expected bool
-	}{
-		{
-			"download /dir/a *",
-			"/dir/a",
-			PermissionScopeDownload,
-			newTestUser("user"),
-			true,
-		},
-		{
-			"download /dir/a !*",
-			"/dir/a",
-			PermissionScopeDownload,
-			newTestUser("user"),
-			false,
-		},
-		{
-			"download /dir/a -user !*",
-			"/dir/a",
-			PermissionScopeDownload,
-			newTestUser("user"),
-			true,
-		},
-		{
-			"download /dir/a =group !*",
-			"/dir/a",
-			PermissionScopeDownload,
-			newTestUser("user", "group"),
-			true,
-		},
-		{
-			"download /** =group !*",
-			"/dir/a",
-			PermissionScopeDownload,
-			newTestUser("user", "group"),
-			true,
-		},
-		{
-			"download / =group !*",
-			"/dir/a",
-			PermissionScopeUpload,
-			newTestUser("user", "group"),
-			false,
-		},
-		{
-			"download /some/path =group !*",
-			"/dir/a",
-			PermissionScopeDownload,
-			newTestUser("user", "group"),
-			false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(
-			tt.input,
-			func(t *testing.T) {
-				r, err := NewRule(tt.input)
-				if err != nil {
-					t.Fatalf("unable to parse rule '%s': %s", tt.input, err)
+				result := permissions.Match(StringToPermissionScope[scope], tc.matchPath, tc.matchUser)
+				if result != tc.want {
+					t.Fatalf("expected result: %#v, got: %#v", tc.want, result)
 				}
 
-				p, err := NewPermissions([]Rule{r})
-				if err != nil {
-					t.Fatalf("unable to create Permissions: %s", err)
+				resultNoDefault, match := permissions.MatchNoDefault(StringToPermissionScope[scope], tc.matchPath, tc.matchUser)
+				if resultNoDefault != tc.wantNoDefault {
+					t.Fatalf("expected resultNoDefault: %#v, got: %#v", tc.wantNoDefault, resultNoDefault)
 				}
 
-				allowed := p.Match(tt.scope, tt.path, tt.user)
-				if allowed != tt.expected {
-					t.Errorf("expected %t got %t", tt.expected, allowed)
+				if match != tc.wantMatch {
+					t.Fatalf("expected match: %#v, got: %#v", tc.wantMatch, match)
 				}
-			},
-		)
+			})
+		}
 	}
 }

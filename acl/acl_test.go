@@ -1,129 +1,229 @@
 package acl
 
-import (
-	"testing"
+import "testing"
 
-	"github.com/pkg/errors"
-)
-
-func TestNewFromString(t *testing.T) {
-	var tests = []struct {
-		input string
-		err   error
-	}{
-		{
-			"-user =group",
-			nil,
-		},
-		{
-			"",
-			errors.New("no input string given"),
-		},
-		{
-			"- =group",
-			errors.New("expected string after '-'"),
-		},
-		{
-			"-user =",
-			errors.New("expected string after '='"),
-		},
-		{
-			"! -user =group",
-			errors.New("expected string after '!'"),
-		},
-		{
-			"-u1 -u2 -u3 !-u4 =g1",
-			nil,
-		},
-		{
-			"something",
-			errors.New("unexpected string in acl input: 'something'"),
-		},
-		{
-			"-*",
-			errors.New("bad user '*'"),
-		},
-		{
-			"=*",
-			errors.New("bad group '*'"),
-		},
-		{
-			"-_",
-			errors.New("user contains invalid characters: '_'"),
-		},
-		{
-			"=:",
-			errors.New("group contains invalid characters: ':'"),
-		},
+func TestACLNewFromString(t *testing.T) {
+	type test struct {
+		line string
+		want error
 	}
 
-	for _, tt := range tests {
-		t.Run(
-			tt.input,
-			func(t *testing.T) {
-				_, err := NewFromString(tt.input)
-				checkErr(t, err, tt.err)
-			},
-		)
+	tests := map[string]test{
+		"blank":                    test{"", ErrACLBadInput},
+		"malformed negative":       test{"!", ErrACLMalformedNegative},
+		"malformed user":           test{"-", ErrACLMalformedUser},
+		"malformed negative user":  test{"!-", ErrACLMalformedUser},
+		"bad user":                 test{"-*", ErrACLBadUser},
+		"bad user characters":      test{"-@#$", ErrACLInvalidCharacters},
+		"malformed group":          test{"=", ErrACLMalformedGroup},
+		"malformed negative group": test{"!=", ErrACLMalformedGroup},
+		"bad group":                test{"=*", ErrACLBadGroup},
+		"bad group characters":     test{"=@#$", ErrACLInvalidCharacters},
+		"bad special keyword":      test{"keyword", ErrACLInvalidCharacters},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			acl, err := NewFromString(tc.line)
+			if err != tc.want {
+				t.Fatalf("epected %#v, got %#v", tc.want, err)
+			}
+
+			if acl != nil {
+				t.Fatalf("expected nil, got %#v", acl)
+			}
+		})
 	}
 }
 
-func TestAllowed(t *testing.T) {
-	var tests = []struct {
-		input    string
-		user     *User
-		expected bool
-	}{
-		{
-			"-testUser *",
-			newTestUser("testUser"),
-			true,
+func TestACLGadmin(t *testing.T) {
+	acl, err := NewFromString("gadmin")
+	if err != nil {
+		t.Fatalf("expected nil, got %#v", err)
+		return
+	}
+
+	if acl.allowed.gadmin != true {
+		t.Fatal("expected acl.allowed.gadmin to be true")
+	}
+
+	if acl.blocked.gadmin == true {
+		t.Fatal("expected acl.blocked.gadmin to be false")
+	}
+
+	acl, err = NewFromString("!gadmin")
+	if err != nil {
+		t.Fatalf("expected nil, got %#v", err)
+		return
+	}
+
+	if acl.allowed.gadmin == true {
+		t.Fatal("expected acl.allowed.gadmin to be false")
+	}
+
+	if acl.blocked.gadmin != true {
+		t.Fatal("expected acl.blocked.gadmin to be true")
+	}
+}
+
+func TestACLSelf(t *testing.T) {
+	acl, err := NewFromString("self")
+	if err != nil {
+		t.Fatalf("expected nil, got %#v", err)
+		return
+	}
+
+	if acl.allowed.self != true {
+		t.Fatal("expected acl.allowed.self to be true")
+	}
+
+	if acl.blocked.self == true {
+		t.Fatal("expected acl.blocked.self to be false")
+	}
+
+	acl, err = NewFromString("!self")
+	if err != nil {
+		t.Fatalf("expected nil, got %#v", err)
+		return
+	}
+
+	if acl.allowed.self == true {
+		t.Fatal("expected acl.allowed.self to be false")
+	}
+
+	if acl.blocked.self != true {
+		t.Fatal("expected acl.blocked.self to be true")
+	}
+}
+
+func TestACLMatchTarget(t *testing.T) {
+	type test struct {
+		line   string
+		caller *User
+		target *User
+		want   bool
+	}
+
+	tests := map[string]test{
+		"caller is nil": test{
+			line:   "self",
+			caller: nil,
+			target: newUser("alice", "users"),
+			want:   false,
 		},
-		// check specifying user overrides blocking all
-		{
-			"-testUser !*",
-			newTestUser("testUser"),
-			true,
+		"target is nil": test{
+			line:   "self",
+			caller: newUser("alice", "users"),
+			target: nil,
+			want:   false,
 		},
-		// check denying user overrides allowing all
-		{
-			"!-testUser *",
-			newTestUser("testUser"),
-			false,
+		"self allowed": test{
+			line:   "self",
+			caller: newUser("alice", "users"),
+			target: newUser("alice", "users"),
+			want:   true,
 		},
-		// check denying user overrides allowing group
-		{
-			"!-testUser =testGroup",
-			newTestUser("testUser", "testGroup"),
-			false,
+		"self not allowed": test{
+			line:   "!self",
+			caller: newUser("alice", "users"),
+			target: newUser("alice", "users"),
+			want:   false,
 		},
-		// check capitalisation doesnt matter
-		{
-			"-testUser !*",
-			newTestUser("testUser"),
-			true,
+		"gadmin allowed": test{
+			line:   "gadmin",
+			caller: newGadmin("alice", "users"),
+			target: newUser("bob", "users"),
+			want:   true,
 		},
-		// check banned group
-		{
-			"!=testGroup *",
-			newTestUser("testUser", "testGroup"),
-			false,
+		"gadmin blocked": test{
+			line:   "!gadmin",
+			caller: newGadmin("alice", "users"),
+			target: newUser("bob", "users"),
+			want:   false,
+		},
+		"not my gadmin": test{
+			line:   "gadmin",
+			caller: newGadmin("alice", "users"),
+			target: newUser("bob", "bobbers"),
+			want:   false,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(
-			tt.input,
-			func(t *testing.T) {
-				acl, err := NewFromString(tt.input)
-				if err != nil {
-					t.Fatalf("expected nil but got: '%s'", err)
-				}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			acl, err := NewFromString(tc.line)
+			if err != nil {
+				t.Fatalf("expected nil, got %#v", err)
+				return
+			}
 
-				if acl.Match(tt.user) != tt.expected {
-					t.Errorf("expected %t but got: %t", tt.expected, !tt.expected)
-				}
-			},
-		)
+			result := acl.MatchTarget(tc.caller, tc.target)
+			if result != tc.want {
+				t.Fatalf("expected %t, got %t", tc.want, result)
+			}
+		})
+	}
+}
+
+func TestACLMatchTargetGroup(t *testing.T) {
+	type test struct {
+		line   string
+		caller *User
+		target *Group
+		want   bool
+	}
+
+	tests := map[string]test{
+		"caller is nil": test{
+			line:   "self",
+			caller: nil,
+			target: newGroup("users"),
+			want:   false,
+		},
+		"target is nil": test{
+			line:   "self",
+			caller: newUser("alice", "users"),
+			target: nil,
+			want:   false,
+		},
+		"user not allowed": test{
+			line:   "gadmin",
+			caller: newUser("alice", "users"),
+			target: newGroup("users"),
+			want:   false,
+		},
+		"gadmin allowed": test{
+			line:   "gadmin",
+			caller: newGadmin("alice", "users"),
+			target: newGroup("users"),
+			want:   true,
+		},
+		"user allowed gadmin not allowed": test{
+			line:   "!gadmin =users",
+			caller: newUser("alice", "users"),
+			target: newGroup("users"),
+			want:   true,
+		},
+		"gadmin not allowed": test{
+			line:   "!gadmin",
+			caller: newGadmin("alice", "users"),
+			target: newGroup("users"),
+			want:   false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			acl, err := NewFromString(tc.line)
+			if err != nil {
+				t.Fatalf("expected nil, got %#v", err)
+				return
+			}
+
+			result := acl.MatchTargetGroup(tc.caller, tc.target)
+			if result != tc.want {
+				t.Fatalf("expected %t, got %t", tc.want, result)
+			}
+		})
 	}
 }

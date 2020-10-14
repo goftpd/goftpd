@@ -8,6 +8,12 @@ import (
 	"github.com/pkg/errors"
 )
 
+var (
+	ErrRuleInvalidInput           = errors.New("rule requires minimum of 3 fields")
+	ErrRuleUnknownPermissionScope = errors.New("unknown permission scope")
+	ErrRuleBadGlob                = errors.New("failed to compile glob")
+)
+
 // Rule represents a permission parsed from a config file
 type Rule struct {
 	path  string
@@ -24,12 +30,12 @@ func NewRule(line string) (Rule, error) {
 	fields := strings.Fields(strings.ToLower(line))
 
 	if len(fields) < 3 {
-		return rule, errors.New("rule requires minimum of 3 fields")
+		return rule, ErrRuleInvalidInput
 	}
 
 	scope, ok := StringToPermissionScope[fields[0]]
 	if !ok {
-		return rule, errors.Errorf("unknown permission scope '%s'", fields[0])
+		return rule, ErrRuleUnknownPermissionScope
 	}
 	rule.scope = scope
 
@@ -37,7 +43,7 @@ func NewRule(line string) (Rule, error) {
 
 	g, err := glob.Compile(rule.path, '/')
 	if err != nil {
-		return rule, err
+		return rule, ErrRuleBadGlob
 	}
 
 	rule.g = g
@@ -59,7 +65,7 @@ type Permissions struct {
 
 // NewPermissions takes a slice of Rules and creates a way for callers to check ACL
 // for a given path and scope
-func NewPermissions(rules []Rule) (*Permissions, error) {
+func NewPermissions(rules []Rule) *Permissions {
 	p := Permissions{
 		current: make(map[PermissionScope][]Rule, 0),
 	}
@@ -80,7 +86,7 @@ func NewPermissions(rules []Rule) (*Permissions, error) {
 		})
 	}
 
-	return &p, nil
+	return &p
 }
 
 // Match takes a scope a path and a *User and checks to see if they match any rules defaults
@@ -117,7 +123,10 @@ func (p *Permissions) MatchNoDefault(scope PermissionScope, path string, user *U
 	for _, r := range s {
 
 		if r.g.Match(path) {
-			return r.acl.Match(user), true
+			result, match := r.acl.ExplicitMatch(user)
+			if match {
+				return result, true
+			}
 		}
 	}
 

@@ -57,10 +57,6 @@ func (g *Group) RemoveUser(target string) bool {
 
 	delete(g.Users, target)
 
-	if g.Slots > 0 {
-		g.Slots--
-	}
-
 	return true
 }
 

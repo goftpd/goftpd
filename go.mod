@@ -5,11 +5,13 @@ go 1.15
 require (
 	github.com/DataDog/zstd v1.4.5 // indirect
 	github.com/alexedwards/argon2id v0.0.0-20200802152012-2464efd3196b
+	github.com/dgraph-io/badger v1.6.2
 	github.com/dgraph-io/badger/v2 v2.0.1-rc1.0.20201007220711-3b5f17cee813
 	github.com/go-git/go-billy/v5 v5.0.0
 	github.com/gobwas/glob v0.2.3
 	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/golang/snappy v0.0.2 // indirect
+	github.com/google/go-cmp v0.5.0
 	github.com/oragono/go-ident v0.0.0-20200511222032-830550b1d775
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v0.0.5

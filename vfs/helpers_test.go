@@ -111,10 +111,7 @@ func newMemoryFilesystem(t *testing.T, lines []string) *Filesystem {
 		rules = append(rules, r)
 	}
 
-	perms, err := acl.NewPermissions(rules)
-	if err != nil {
-		t.Fatalf("unexpected error creating Permissions: %s", err)
-	}
+	perms := acl.NewPermissions(rules)
 
 	opts := FilesystemOpts{
 		DefaultUser:  "nobody",

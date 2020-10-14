@@ -9,6 +9,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+var (
+	ErrUserIPMalformed      = errors.New("does not contain a '@'")
+	ErrUserIPRequiredOctets = errors.New("require 4 octets, '*' does not work across octets.")
+	ErrUserIPBadGlob        = errors.New("mask is not a valid 'glob'")
+	ErrUserIPExists         = errors.New("mask already exists")
+)
+
 type User struct {
 	Name     string
 	Password []byte
@@ -87,17 +94,20 @@ func (u *User) AddIP(mask string) error {
 
 	parts := strings.Split(mask, "@")
 	if len(parts) != 2 {
-		return errors.New("does not contain a '@'")
+		return ErrUserIPMalformed
 	}
 
 	if len(strings.Split(parts[1], ".")) != 4 {
-		return errors.New("require 4 octets, '*' does not work across octets.")
+		return ErrUserIPRequiredOctets
 	}
 
-	// check we can compile the glob
-	_, err := glob.Compile(parts[0], '.')
-	if err != nil {
-		return errors.New("mask is not a valid 'glob'")
+	// check we can compile the globs
+	if _, err := glob.Compile(parts[0], '.'); err != nil {
+		return ErrUserIPBadGlob
+	}
+
+	if _, err := glob.Compile(parts[1], '.'); err != nil {
+		return ErrUserIPBadGlob
 	}
 
 	// TODO
@@ -111,7 +121,7 @@ func (u *User) AddIP(mask string) error {
 
 	for idx := range u.IPMasks {
 		if mask == u.IPMasks[idx] {
-			return errors.New("mask already exists")
+			return ErrUserIPExists
 		}
 	}
 

@@ -20,10 +20,7 @@ func (c *Config) ParsePermissions() (*acl.Permissions, error) {
 		rules = append(rules, r)
 	}
 
-	permissions, err := acl.NewPermissions(rules)
-	if err != nil {
-		return nil, err
-	}
+	permissions := acl.NewPermissions(rules)
 
 	return permissions, nil
 }
