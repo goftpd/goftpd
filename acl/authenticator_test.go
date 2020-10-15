@@ -5,6 +5,7 @@ import (
 
 	"github.com/dgraph-io/badger/v2"
 	"github.com/google/go-cmp/cmp"
+	"github.com/pkg/errors"
 )
 
 func newAuthenticator(t *testing.T) Authenticator {
@@ -19,7 +20,7 @@ func newAuthenticator(t *testing.T) Authenticator {
 	return NewBadgerAuthenticator(db)
 }
 
-func TestUser(t *testing.T) {
+func TestAuthUser(t *testing.T) {
 	auth := newAuthenticator(t)
 
 	// try get none existent user
@@ -75,10 +76,80 @@ func TestUser(t *testing.T) {
 		t.Fatal(diff)
 	}
 
+	// update
+	err = auth.UpdateUser("alice", func(u *User) error {
+		u.AddGroup("testers")
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("expected nil, got %#v", err)
+	}
+
+	// test bad update
+	badErr := errors.New("hello")
+	err = auth.UpdateUser("alice", func(u *User) error {
+		// try and remove, then return an error
+		// this update should then not happen
+		u.RemoveGroup("testers")
+		return badErr
+	})
+	if err != badErr {
+		t.Fatalf("expected badErr, got %#v", err)
+	}
+
+	// check update was ok
+	updated, err := auth.GetUser("alice")
+	if err != nil {
+		t.Fatalf("expected err, got %#v", err)
+	}
+
+	if !updated.UpdatedAt.After(user.UpdatedAt) {
+		t.Fatalf("expected UpdatedAt to be after, got %v", updated.UpdatedAt)
+	}
+
+	if !updated.HasGroup("testers") {
+		t.Fatal("expected to have group 'testers'")
+	}
+
 	// TODO: delete
 }
 
-func TestAddGroup(t *testing.T) {
+func TestAuthUserUpdateDoesntExist(t *testing.T) {
+	auth := newAuthenticator(t)
+
+	err := auth.UpdateUser("glftpd", func(u *User) error {
+		return nil
+	})
+	if err != ErrUserDoesntExist {
+		t.Fatalf("expected ErrUserDoesntExist, got %#v", err)
+	}
+}
+
+func TestAuthGroupUpdateDoesntExist(t *testing.T) {
+	auth := newAuthenticator(t)
+
+	err := auth.UpdateGroup("glftpd", func(u *Group) error {
+		return nil
+	})
+	if err != ErrUserDoesntExist {
+		t.Fatalf("expected ErrGroupDoesntExist, got %#v", err)
+	}
+}
+
+func TestAuthUserConflict(t *testing.T) {
+	// TODO:
+	// try and reliably create race conditions that mean the retry kicks in
+	// and then check that both changes have been applied to the final
+	// GetUser
+}
+
+func TestAuthUserBadDecode(t *testing.T) {
+	// TODO:
+	// somehow inject some bad entries that cause decode errors to propogate
+	// up
+}
+
+func TestAuthGroup(t *testing.T) {
 	auth := newAuthenticator(t)
 
 	groups, err := auth.GetGroups()
@@ -127,4 +198,50 @@ func TestAddGroup(t *testing.T) {
 	if len(diff) > 0 {
 		t.Fatal(diff)
 	}
+
+	// update
+	err = auth.UpdateGroup("users", func(g *Group) error {
+		g.Slots = 10
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("expected nil, got %#v", err)
+	}
+
+	// test bad update
+	badErr := errors.New("hello")
+	err = auth.UpdateGroup("users", func(g *Group) error {
+		// try and remove, then return an error
+		// this update should then not happen
+		g.Slots = 15
+		return badErr
+	})
+	if err != badErr {
+		t.Fatalf("expected badErr, got %#v", err)
+	}
+
+	// check update was ok
+	updated, err := auth.GetGroup("users")
+	if err != nil {
+		t.Fatalf("expected err, got %#v", err)
+	}
+
+	if updated.Slots != 10 {
+		t.Fatalf("expected 10, got %d", updated.Slots)
+	}
+
+	err = auth.DeleteGroup("users")
+	if err != nil {
+		t.Fatalf("expected nil, got %#v", err)
+	}
+
+	postDelete, err := auth.GetGroups()
+	if err != nil {
+		t.Fatalf("expected nil, got %#v", err)
+	}
+
+	if len(postDelete) != 0 {
+		t.Fatalf("expected 0, got %d", len(postDelete))
+	}
+
 }
