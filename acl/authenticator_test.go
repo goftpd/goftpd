@@ -245,3 +245,24 @@ func TestAuthGroup(t *testing.T) {
 	}
 
 }
+
+func TestAuthCheckPassword(t *testing.T) {
+	auth := newAuthenticator(t)
+
+	// no user
+	if auth.CheckPassword("user", "pass") {
+		t.Fatal("expected false, got true")
+	}
+
+	if _, err := auth.AddUser("alice", "supersecret"); err != nil {
+		t.Fatalf("expected nil, got %#v", err)
+	}
+
+	if !auth.CheckPassword("alice", "supersecret") {
+		t.Fatal("expected true, got false")
+	}
+
+	if auth.CheckPassword("alice", "sssssupersecret") {
+		t.Fatal("expected false, got true")
+	}
+}
