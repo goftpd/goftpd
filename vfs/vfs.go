@@ -31,6 +31,8 @@ func newBufferPoolWithSize(size int) sync.Pool {
 }
 
 type VFS interface {
+	SuperUser() *acl.User
+
 	Join(string, []string) string
 	JoinRoot(string, []string) string
 	Stop() error
@@ -96,6 +98,8 @@ func NewFilesystem(opts *FilesystemOpts, chroot billy.Filesystem, shadow Shadow,
 
 	return &fs, nil
 }
+
+func (fs *Filesystem) SuperUser() *acl.User { return acl.SuperUser }
 
 func (fs *Filesystem) GetEntry(path string) (*Entry, error) {
 	return fs.shadow.Get(path)
@@ -277,6 +281,7 @@ func (fs *Filesystem) UploadFile(path string, user *acl.User) (io.WriteCloser, e
 
 	entry := NewEntry(user.Name, user.PrimaryGroup)
 	h := fs.crcPool.Get().(hash.Hash32)
+	h.Reset()
 	// wrap the file in our special Writer that allows us to manage the shadow fs
 	writer := newWriteCloser(h, f, func(w *writeCloser) error {
 		entry.CRC = h.Sum32()
@@ -335,6 +340,7 @@ func (fs *Filesystem) ResumeUploadFile(path string, user *acl.User) (io.WriteClo
 
 	entry := NewEntry(user.Name, user.PrimaryGroup)
 	h := fs.crcPool.Get().(hash.Hash32)
+	h.Reset()
 	// wrap the file in our special Writer that allows us to manage the shadow fs
 	writer := newWriteCloser(h, f, func(w *writeCloser) error {
 		entry.CRC = h.Sum32()

@@ -16,24 +16,47 @@ local absolutepath = session:FS():JoinRoot(session:CWD(), params)
 -- required for crc, possibly speed also
 local entry, err = session:FS():GetEntry(path)
 if err then
-	session:Reply(500, "Error in GetEntry: " .. err:Error())
-	return true
+    session:Reply(500, "Error in GetEntry: " .. err:Error())
+    return true
 end
 
 local user = session:User()
 
 -- Usage: site/bin/zipscript-c <absolute filepath> <crc> <user> <group> <tagline> <speed> <section>
-local cmd = string.format('site/bin/zipscript-c "%s" %s "%s" "%s" "tagline" 10000 "section"', absolutepath, entry:CRCHex(), user.Name, user.PrimaryGroup)
+-- echo $? to get the return code
+-- TODO insert tagline, section and a speed (wtf unit is speed)
+local cmd = string.format('site/bin/zipscript-c "%s" "%s" "%s" "%s" "tagline" 10000 "section"; echo $?', absolutepath, entry:CRCHex(), user.Name, user.PrimaryGroup)
 
 print(cmd)
 
-local ret = os.execute(cmd)
+-- popen only gives us stdout, not the return value, so we have to do a little 
+-- bit of hacking to extract it
+local fd = io.popen(cmd, "r")
 
-print(ret)
+local ret = 1
+if fd then
+    local last_line = nil
+    for line in fd:lines() do
+        if last_line then
+            session:Reply(226, last_line)
+        end
+        if line then
+            last_line = line
+        end
+    end
+
+    if tonumber(last_line) then
+        ret = tonumber(last_line)
+    end
+end
+
+fd:close()
 
 if ret > 0 then
-	session:Reply(500, "Error in post_check")
-	return false
+    -- delete the file
+    session:FS():DeleteFile(path, session:FS():SuperUser())
+    session:Reply(500, "Error in post_check")
+    return false
 end
 
 return true

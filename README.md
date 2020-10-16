@@ -34,6 +34,28 @@ go run main.go run
 
 Congratulations, you are now a hacker.
 
+## PZS-NG
+Install PZS-NG:
+
+```
+./configure --disable-glftpd-specific
+```
+
+Your `zsconfig.h` should use absolute paths, i.e.:
+
+```
+#define sitepath_dir                 "/srv/goftpd/site/data"
+#define group_dirs                   "/srv/goftpd/site/data/groups/"
+#define zip_dirs                     "/srv/goftpd/site/data/zip"
+#define sfv_dirs                     "/srv/goftpd/site/data/sfv"
+
+#define log                          "/srv/goftpd/site/ftp-data/logs/glftpd.log"
+#define storage                      "/srv/goftpd/site/ftp-data/pzs-ng/"
+```
+
+And of course ensure it's create: `mkdir /srv/goftpd/site/ftp-data/`. Run `make`
+and then `cp zipscript/src/zipscript-c /srv/goftpd/site/bin/`
+
 
 ## Ramblings
 The core will implement the FTP RFC with pluggable Auth and Filesystem
