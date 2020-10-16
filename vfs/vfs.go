@@ -32,6 +32,7 @@ func newBufferPoolWithSize(size int) sync.Pool {
 
 type VFS interface {
 	Join(string, []string) string
+	JoinRoot(string, []string) string
 	Stop() error
 	MakeDir(string, *acl.User) error
 	DownloadFile(string, *acl.User) (ReadSeekCloser, int64, error)
@@ -67,11 +68,17 @@ type Filesystem struct {
 	permissions *acl.Permissions
 	buffPool    sync.Pool
 	crcPool     sync.Pool
+
+	cwd string
 }
 
 // NewFilesystem creates a new Filesystem with the given chroot (underlying fs) shadow (stores user/group meta data
 // and permissions (check acl for paths, users and different scopes)
 func NewFilesystem(opts *FilesystemOpts, chroot billy.Filesystem, shadow Shadow, permissions *acl.Permissions) (*Filesystem, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
 
 	fs := Filesystem{
 		FilesystemOpts: opts,
@@ -84,6 +91,7 @@ func NewFilesystem(opts *FilesystemOpts, chroot billy.Filesystem, shadow Shadow,
 				return crc32.NewIEEE()
 			},
 		},
+		cwd: cwd,
 	}
 
 	return &fs, nil
@@ -108,6 +116,24 @@ func (fs Filesystem) Join(current string, params []string) string {
 
 	if !strings.HasPrefix(path, "/") {
 		path = filepath.Join(current, path)
+	}
+
+	return path
+}
+
+// Join tries to give back a safe path
+func (fs Filesystem) JoinRoot(current string, params []string) string {
+
+	path := strings.Join(params, " ")
+
+	if !strings.HasPrefix(path, "/") {
+		path = filepath.Join(current, path)
+	}
+
+	path = filepath.Join(fs.Root, path)
+
+	if !strings.HasPrefix(path, "/") {
+		path = filepath.Join(fs.cwd, path)
 	}
 
 	return path

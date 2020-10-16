@@ -577,6 +577,7 @@ func TestListDirSortByNameNoShow(t *testing.T) {
 		now.Format("Jan _2 15:04"),
 		now.Format("Jan _2 15:04"),
 	)
+	expectedShort := "f0\nf1\nf2\nf3\nf4\nf5\nf6\nf7\nf8\nf9\n"
 
 	fs := newMemoryFilesystem(t, rules)
 	if fs == nil {
@@ -603,6 +604,9 @@ func TestListDirSortByNameNoShow(t *testing.T) {
 		t.Errorf("unexpected detailed:\n%s\nexpected:\n%s", string(files.Detailed()), expectedDetailed)
 	}
 
+	if string(files.Short()) != expectedShort {
+		t.Errorf("unexpected detailed:\n%s\nexpected:\n%s", string(files.Short()), expectedShort)
+	}
 }
 
 func TestListDirSortByNameShow(t *testing.T) {

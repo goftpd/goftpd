@@ -11,16 +11,26 @@
 local filepath = require("filepath")
 
 local path = session:FS():Join(session:CWD(), params)
-local dir = filepath.join(session:FS().Root, filepath.dir(path))
-local filename = filepath.basename(path)
+local absolutepath = session:FS():JoinRoot(session:CWD(), params)
 
+-- required for crc, possibly speed also
 local entry, err = session:FS():GetEntry(path)
 if err then
 	session:Reply(500, "Error in GetEntry: " .. err:Error())
 	return true
 end
 
-local ret = os.execute('/bin/sh site/bin/zipscript.sh "' .. filename .. '" "' .. dir .. '" ' .. entry:CRCHex())
+local user = session:User()
+
+-- Usage: site/bin/zipscript-c <absolute filepath> <crc> <user> <group> <tagline> <speed> <section>
+local cmd = string.format('site/bin/zipscript-c "%s" %s "%s" "%s" "tagline" 10000 "section"', absolutepath, entry:CRCHex(), user.Name, user.PrimaryGroup)
+
+print(cmd)
+
+local ret = os.execute(cmd)
+
+print(ret)
+
 if ret > 0 then
 	session:Reply(500, "Error in post_check")
 	return false
